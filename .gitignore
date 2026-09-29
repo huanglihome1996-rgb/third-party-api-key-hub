@@ -1,0 +1,23 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+.turbo/
+
+# Local editor and OS files
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+

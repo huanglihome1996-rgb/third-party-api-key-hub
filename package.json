@@ -1,0 +1,14 @@
+{
+  "name": "third-party-api-key-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundation for integrating third-party platforms and managing API credentials securely.",
+  "type": "module",
+  "scripts": {
+    "check": "node --version"
+  },
+  "engines": {
+    "node": ">=20.12.0"
+  }
+}
+
