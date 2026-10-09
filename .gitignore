@@ -18,6 +18,7 @@ coverage/
 *.sqlite-wal
 fixture-state/
 .turbo/
+.playwright-mcp/
 
 # Local editor and OS files
 .idea/
