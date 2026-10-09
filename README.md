@@ -8,7 +8,9 @@
 - 已安装 BMAD Method 6.12.0（BMM 模块）
 - 已配置 Codex 技能到 `.agents/skills`
 - BMAD 产物默认输出到 `_bmad-output`
-- 已形成首期 PRD、架构、SPEC 和 34 条规划任务；业务实现和实际平台/Linux/KMS 验收尚未开始，整体开发就绪 **FAIL**。
+- 已形成首期 PRD、架构、SPEC 和 34 条规划任务。
+- 2026-10-09 用户确认先交付 Epic 1 的平台无关本地核心，TikTok profile 延后到 Epic 2；已实现 Docker fixture CLI、Unix 服务、SQLite、手工导入/取密/停用恢复和非敏感审计。
+- Ubuntu/systemd、生产 OpenBao/AppRole 和 TikTok 验收仍阻塞；fixture 演示不代表完整首期或生产就绪。
 
 ## 现行文档入口
 
@@ -21,11 +23,31 @@
 
 文档 `final` 表示基线定稿，不表示功能实现、联调或运行目标已通过；`docs/project-brief.md` 是历史输入。六项审查修订的依据与复核见 [修订收尾记录](_bmad-output/party-mode/reviews/2026-10-08-document-repair.md)。
 
-## 开始使用
+## 使用 Docker 运行本地演示
 
-1. 在项目目录打开 Codex 或其他已配置的 AI 工具。
-2. 使用 `bmad-help` 技能查看适合当前阶段的 BMAD 工作流。
-3. 复制 `.env.example` 为 `.env.local`，填入本地开发所需配置。
+本机无需安装 Go。仅使用虚构数据；fixture 固定 App `client_secret` + shop `shop_token` 业务组合，管理 `refresh_token` 不输出。演示服务没有 TCP 端口，容器以非 root UID 10001 运行，仅通过共享卷中的 Unix Socket 访问。
+
+```powershell
+docker compose up -d --build hubd
+'{"version":"contract/v1","operation":"health","payload":{}}' | docker compose run --rm -T hub
+```
+
+输入秘密只放 stdin，不放命令参数。显式隐藏交互入口为 `hub --interactive`，stdin 提供不含 value 的导入元数据；要求 Linux 控制 TTY。完整操作说明及 schema 见 [CLI 契约](_bmad-output/planning-artifacts/contracts/cli-v1/CLI-CONTRACT.md)。
+
+停止演示（保留 fixture 卷和重启所需开发 key）：
+
+```powershell
+docker compose down
+```
+
+运行验证（缓存 Go 模块和构建，不安装本机 Go）：
+
+```powershell
+docker run --rm -v "${PWD}:/src" -v epic1-go-mod:/go/pkg/mod -v epic1-go-build:/root/.cache/go-build -w /src golang:1.27.2 go test -race -coverpkg=./... ./...
+docker run --rm -v "${PWD}:/src" -v epic1-go-mod:/go/pkg/mod -v epic1-go-build:/root/.cache/go-build -w /src golang:1.27.2 go vet ./...
+docker run --rm -v "${PWD}:/src" -v epic1-go-mod:/go/pkg/mod -v epic1-go-build:/root/.cache/go-build -w /src golang:1.27.2 go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+uv run --with jsonschema scripts/contract-schema.py
+```
 
 ## 凭据原则
 
@@ -40,5 +62,7 @@
 | `_bmad/` | BMAD 核心与 BMM 模块 |
 | `_bmad-output/` | BMAD 生成的规划与项目文档 |
 | `.agents/skills/` | Codex 使用的 BMAD 技能 |
-| `src/` | 后续第三方平台适配器和密钥管理代码 |
+| `cmd/` | hub CLI 和 hubd 服务组装入口 |
+| `internal/` | 领域、应用、共享契约、SQLite/Unix/fixture 适配器 |
+| `scripts/` | 契约导出与验证 |
 

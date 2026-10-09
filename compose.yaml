@@ -1,0 +1,25 @@
+services:
+  hubd:
+    build: .
+    image: api-key-hub:fixture
+    volumes:
+      - fixture-state:/state
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+  hub:
+    image: api-key-hub:fixture
+    entrypoint: [hub]
+    command: [--socket, /state/hub.sock]
+    profiles: [tools]
+    stdin_open: true
+    volumes:
+      - fixture-state:/state
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+volumes:
+  fixture-state:

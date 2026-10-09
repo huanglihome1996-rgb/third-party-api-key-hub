@@ -12,6 +12,11 @@
 node_modules/
 dist/
 coverage/
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+fixture-state/
 .turbo/
 
 # Local editor and OS files

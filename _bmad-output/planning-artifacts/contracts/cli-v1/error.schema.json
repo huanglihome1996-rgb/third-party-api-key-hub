@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "error": {
+      "enum": [
+        "input_invalid",
+        "not_found",
+        "selection_required",
+        "mapping_incomplete",
+        "mapping_mismatch",
+        "permission_denied",
+        "credential_missing",
+        "credential_expired",
+        "credential_disabled",
+        "internal_error"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "error",
+    "message"
+  ],
+  "additionalProperties": false
+}

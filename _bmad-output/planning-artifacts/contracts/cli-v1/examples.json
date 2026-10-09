@@ -1,0 +1,458 @@
+{
+  "operations": [
+    {
+      "operation": "app.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "app.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "app.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "app.register",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "app.register",
+        "payload": {
+          "app_id": "fixture-app-id",
+          "platform": "fixture",
+          "provider_app_id": "fixture-provider-app-id"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "app.register",
+        "payload": {
+          "app_id": "fixture-app-id",
+          "platform": "fixture",
+          "provider_app_id": "fixture-provider-app-id",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "audit.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "audit.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "audit.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "brand.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "brand.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "brand.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "brand.map_internal_shop",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "brand.map_internal_shop",
+        "payload": {
+          "brand_id": "fixture-brand-id",
+          "internal_shop_id": "fixture-internal-shop-id",
+          "expected_revision": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "brand.map_internal_shop",
+        "payload": {
+          "brand_id": "fixture-brand-id",
+          "internal_shop_id": "fixture-internal-shop-id",
+          "expected_revision": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "brand.register",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "brand.register",
+        "payload": {
+          "brand_id": "fixture-brand-id"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "brand.register",
+        "payload": {
+          "brand_id": "fixture-brand-id",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "brand.unmap_internal_shop",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "brand.unmap_internal_shop",
+        "payload": {
+          "brand_id": "fixture-brand-id",
+          "expected_revision": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "brand.unmap_internal_shop",
+        "payload": {
+          "brand_id": "fixture-brand-id",
+          "expected_revision": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.confirm",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.confirm",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.confirm",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.disable",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.disable",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.disable",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.import",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.import",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "value": "fixture-value",
+          "replace": false,
+          "expiry_known": false,
+          "expires_at": null,
+          "confirm": false
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.import",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "value": "fixture-value",
+          "replace": false,
+          "expiry_known": false,
+          "expires_at": null,
+          "confirm": false,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.mark_invalid",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.mark_invalid",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1,
+          "reason": "invalid"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.mark_invalid",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1,
+          "reason": "invalid",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.query",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.query",
+        "payload": {
+          "by": "external_shop",
+          "external_shop_id": "fixture-shop"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.query",
+        "payload": {
+          "by": "external_shop",
+          "external_shop_id": "fixture-shop",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.restore",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.restore",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.restore",
+        "payload": {
+          "scope": "app",
+          "app_id": "fixture-app-id",
+          "type": "client_secret",
+          "expected_generation": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "credential.status",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "credential.status",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "credential.status",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "health",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "health",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "health",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "installation.create",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "installation.create",
+        "payload": {
+          "app_id": "fixture-app-id",
+          "external_shop_id": "fixture-external-shop-id",
+          "expected_revision": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "installation.create",
+        "payload": {
+          "app_id": "fixture-app-id",
+          "external_shop_id": "fixture-external-shop-id",
+          "expected_revision": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "installation.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "installation.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "installation.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "internal_shop.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "internal_shop.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "internal_shop.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "internal_shop.register",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "internal_shop.register",
+        "payload": {
+          "internal_shop_id": "fixture-internal-shop-id"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "internal_shop.register",
+        "payload": {
+          "internal_shop_id": "fixture-internal-shop-id",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "shop.list",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "shop.list",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "shop.list",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "shop.map_brand",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "shop.map_brand",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "brand_id": "fixture-brand-id",
+          "expected_revision": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "shop.map_brand",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "brand_id": "fixture-brand-id",
+          "expected_revision": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "shop.register",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "shop.register",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "platform": "fixture",
+          "provider_shop_id": "fixture-provider-shop-id"
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "shop.register",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "platform": "fixture",
+          "provider_shop_id": "fixture-provider-shop-id",
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "shop.unmap_brand",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "shop.unmap_brand",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "expected_revision": 1
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "shop.unmap_brand",
+        "payload": {
+          "external_shop_id": "fixture-external-shop-id",
+          "expected_revision": 1,
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    }
+  ]
+}

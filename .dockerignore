@@ -1,0 +1,12 @@
+.git
+.agents
+_bmad
+_bmad-output
+.env*
+!*.example
+*.key
+*.pem
+node_modules
+dist
+coverage
+*.sqlite*

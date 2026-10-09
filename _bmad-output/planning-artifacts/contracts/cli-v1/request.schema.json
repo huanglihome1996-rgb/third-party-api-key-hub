@@ -1,0 +1,1285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:api-key-hub:fixture-v1:request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "app.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "app.register"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "platform": {
+              "const": "fixture"
+            },
+            "provider_app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "app_id",
+            "platform",
+            "provider_app_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "audit.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "to": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operation": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            },
+            "result": {
+              "type": "string"
+            },
+            "operation_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "brand.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "brand.map_internal_shop"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "brand_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "internal_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "brand_id",
+            "internal_shop_id",
+            "expected_revision"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "brand.register"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "brand_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "brand_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "brand.unmap_internal_shop"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "brand_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "brand_id",
+            "expected_revision"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.confirm"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "app",
+                "shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "type": {
+              "enum": [
+                "client_secret",
+                "shop_token",
+                "refresh_token"
+              ]
+            },
+            "expected_generation": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "scope",
+            "app_id",
+            "type",
+            "expected_generation"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "external_shop_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.disable"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "app",
+                "shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "type": {
+              "enum": [
+                "client_secret",
+                "shop_token",
+                "refresh_token"
+              ]
+            }
+          },
+          "required": [
+            "scope",
+            "app_id",
+            "type"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "external_shop_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.import"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "app",
+                "shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "type": {
+              "enum": [
+                "client_secret",
+                "shop_token",
+                "refresh_token"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 65536
+            },
+            "replace": {
+              "type": "boolean"
+            },
+            "expected_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "expiry_known": {
+              "type": "boolean"
+            },
+            "expires_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "confirm": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "scope",
+            "app_id",
+            "type",
+            "value",
+            "replace",
+            "expiry_known",
+            "expires_at",
+            "confirm"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "replace": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "expected_generation"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "expected_generation"
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "expiry_known": {
+                    "const": false
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "expires_at": {
+                    "type": "null"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "expires_at": {
+                    "type": "string",
+                    "pattern": "Z$"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "external_shop_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.mark_invalid"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "app",
+                "shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "type": {
+              "enum": [
+                "client_secret",
+                "shop_token",
+                "refresh_token"
+              ]
+            },
+            "expected_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "reason": {
+              "enum": [
+                "rejected",
+                "revoked",
+                "invalid"
+              ]
+            }
+          },
+          "required": [
+            "scope",
+            "app_id",
+            "type",
+            "expected_generation",
+            "reason"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "external_shop_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.query"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "by": {
+              "enum": [
+                "brand",
+                "internal_shop",
+                "external_shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "brand_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "internal_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            }
+          },
+          "required": [
+            "by"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "by": {
+                    "const": "external_shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "brand_id"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "internal_shop_id"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "by": {
+                    "const": "brand"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "brand_id"
+                ],
+                "not": {
+                  "required": [
+                    "internal_shop_id"
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "by": {
+                    "const": "internal_shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "internal_shop_id"
+                ],
+                "not": {
+                  "required": [
+                    "brand_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.restore"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "app",
+                "shop"
+              ]
+            },
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "type": {
+              "enum": [
+                "client_secret",
+                "shop_token",
+                "refresh_token"
+              ]
+            },
+            "expected_generation": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "scope",
+            "app_id",
+            "type",
+            "expected_generation"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "shop"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "external_shop_id"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "external_shop_id"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "credential.status"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "health"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false,
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "installation.create"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "app_id",
+            "external_shop_id",
+            "expected_revision"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "installation.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "app_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "internal_shop.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "internal_shop.register"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "internal_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "internal_shop_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "shop.list"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "shop.map_brand"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "brand_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "external_shop_id",
+            "brand_id",
+            "expected_revision"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "shop.register"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "platform": {
+              "const": "fixture"
+            },
+            "provider_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "external_shop_id",
+            "platform",
+            "provider_shop_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "operation",
+        "payload"
+      ],
+      "properties": {
+        "version": {
+          "const": "contract/v1"
+        },
+        "operation": {
+          "const": "shop.unmap_brand"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "external_shop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\s|\\x00-\\x1f\\x7f]+$"
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "external_shop_id",
+            "expected_revision"
+          ]
+        }
+      }
+    }
+  ]
+}

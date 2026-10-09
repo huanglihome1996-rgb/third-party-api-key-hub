@@ -7,7 +7,7 @@ paradigm: hexagonal-modular-monolith
 scope: 首期 FR-1 至 FR-12、Go 共享核心及 Linux 部署
 status: final
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-09
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6]
 sources:
   - ../../prds/prd-third-party-api-key-hub-2026-10-08/prd.md
@@ -149,7 +149,7 @@ flowchart LR
 
 | Name | Version |
 | --- | --- |
-| Go／net/http／encoding/json／database/sql | 1.27.1 |
+| Go／net/http／encoding/json／database/sql | 1.27.2 |
 | modernc.org/sqlite | 1.60.1 |
 | modernc.org/libc（SQLite 配套依赖） | 1.77.1 |
 | golang.org/x/sys（Linux peer credentials） | 0.48.0 |
@@ -249,3 +249,7 @@ scripts/                    构建、打包、备份与恢复
 | Vaultwarden Q-11、钉钉、终端分发、对象级权限、多租户、多节点及其他平台 | 后续启动时单独设计；首期仅预留 provider/SecretProtector 端口，不实现推送、代理调用或远程取密。 |
 
 R-1 至 R-10 已全部接受。后续对应 Story 所需的 Deferred 契约未落实时，不能声称已经可以实施该 Story。
+
+## 2026-10-09 补丁版本决策
+
+用户明确批准将 Go 1.27.1 升级为 1.27.2：govulncheck 在原版本中报告 9 项标准库可达符号漏洞，修复版本为 1.27.2。Go 语言、架构和模块版本选择不变；构建、竞态测试与漏洞扫描按新补丁版本复验。2026-10-08 的技术依据保留为历史记录。
