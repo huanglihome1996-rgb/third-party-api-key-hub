@@ -1,0 +1,41 @@
+{
+  "mode": "fixture",
+  "production_rpo_acceptance": "pending",
+  "manual_rto_acceptance": "pending",
+  "automated_drill_only": true,
+  "started_at": "2026-10-09T16:18:08.486097Z",
+  "checks": [
+    "backup_created_online",
+    "retention_cli",
+    "backup_excludes_key",
+    "missing_key_rejected",
+    "wrong_key_rejected",
+    "corrupted_snapshot_rejected",
+    "existing_target_rejected",
+    "restored_query_closed",
+    "closed_after_restart",
+    "stale_review_rejected",
+    "unreviewed_values_rejected",
+    "explicit_open_complete_result",
+    "opened_state_persisted",
+    "disabled_still_rejected_after_restart"
+  ],
+  "binary_sha256": {
+    "hub": "e7a27f003425d86744b15de48042324542ab65c7b8da09d61b2d1ef4775daeaf",
+    "hubd": "6cae3c42316c5cc6839750217eb19f5951d5424407b8e8f160dba2a673558acd"
+  },
+  "binary_architectures": {
+    "hub": "amd64",
+    "hubd": "amd64"
+  },
+  "runtime_machine": "x86_64",
+  "uid": 10001,
+  "failure_at": "2026-10-09T16:18:08.718965Z",
+  "opened_at": "2026-10-09T16:18:09.036794Z",
+  "automated_restore_seconds": 0.2875392420000935,
+  "snapshot_at": "2026-10-09T16:18:08.661224346Z",
+  "fixture_rpo_seconds": 0.057741,
+  "audit_gap": false,
+  "status": "PASS",
+  "completed_at": "2026-10-09T16:18:09.117939Z"
+}

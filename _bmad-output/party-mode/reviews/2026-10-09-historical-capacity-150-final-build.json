@@ -1,0 +1,11 @@
+{
+  "cpu_affinity": "0-1",
+  "tmpdir": "/var/tmp",
+  "source_tree_sha256": "e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+  "gomaxprocs": 2,
+  "go_version": "go1.27.2",
+  "source_provenance": "same immutable foreground-pause snapshot as verified CLI binaries",
+  "test_binary_sha256": "3a59d204a33bcd4970cf0d86cb19838a03bb53ab0fd3f7b7303c43e741a0ba7e",
+  "fixture_storage": "WSL ext4 filesystem; earlier baseline used /tmp tmpfs",
+  "automatic_maintenance_target_ms": 120000
+}

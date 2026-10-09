@@ -27,6 +27,10 @@ docker run --rm -e "HUB_SOURCE_REVISION=$hubRevision" -v "${PWD}:/src" -v epic1-
 
 daemon按已校验manifest的最新共同快照时间计算每日到期，启动补跑已到期任务，重启不重新延后24小时。缺/损坏/过期包产生固定枚举告警，并在health的operations_degraded体现；恢复关闭阶段跳过自动维护。health的audit_degraded单独反映审计缺口。
 
+自动维护任务的 context 预算为两分钟；人工 CLI 与 IPC 请求期限为 15 秒。二者容量证据分别测量，不能把人工请求写成有两分钟执行窗口。CLI 超时后仍须复核非敏感状态及已校验包，不能据超时推断动作未执行。
+
+手工备份/保留执行期间，后台历史扫描在包边界暂停派发，已有验证可以完成，手工维护不等待整个扫描。维护结束后继续验证全部剩余包；取消中的暂停不计为损坏包或成功完成。暂停仍计入原自动context预算，不改变deadline和固定故障告警规则。
+
 ```json
 {"version":"contract/v1","operation":"operations.retention","payload":{}}
 {"version":"contract/v1","operation":"recovery.status","payload":{}}
@@ -35,6 +39,10 @@ daemon按已校验manifest的最新共同快照时间计算每日到期，启动
 审计 cutoff 取 UTC 日历周年与 now−366天两者中更早的时间，只清理严格早于 cutoff 的事件，恰好边界保留；损坏事件、异常未来时间或时钟倒退安全失败。失败告警仅固定安全类别，健康状态降级，业务结果不回滚。服务未收到的系统连接拒绝须由生产部署采集，不能由当前服务审计代替。
 
 手工备份或清理的真实依赖故障同样置 operations_degraded，并由 daemon 输出固定 `event=operations_dependency_failed count=<数字>`；权限拒绝不被记为依赖故障。既有实例启动先验证全部持久逻辑凭据与独立key绑定，错误key安全拒绝；既有业务库丢失审计库时会持久记录audit_gap，重建空审计库不代表恢复历史。
+
+已有业务库和审计库须在建表、迁移及创建 IPC 前通过完整性、固定 schema、metadata 与记录检查；零字节、缺表或异常约束等安全拒绝，不自动补齐。只有路径从未存在时才初始化。已有文件权限或类型不安全也拒绝，不在启动时静默修正权限。合法完整 v1 schema 可以迁移；活动库使用正常 SQLite 连接读取已提交 WAL 并恢复热 rollback journal，备份的不可变读取方式不用于活动库 admission。启动失败后保留原文件及独立 key，按受控备份恢复流程处理。
+
+恢复文件会先做格式与原生校验和检查，保留合法 WAL 重用及可识别的未提交尾部，包括重用后的 pending 前缀和回滚后被较短事务覆盖的旧尾部。SQLite rollback journal 的稀疏校验和不能检测全部字节损坏；WAL 最后提交标记损坏为零也可能与合法未提交回滚尾部无法区分。启动校验不提供全状态认证。需要核对实际业务状态及受信任完整备份，不能把启动成功作为所有位损坏均不存在的证明。
 
 ## 独立密钥与安全恢复
 
@@ -57,7 +65,7 @@ hubd --fixture --state-dir /new-restored-state --fixture-key-file /recovery-mate
 
 示例 revision 必须用实际当前值；不要盲目复用。服务复核完整覆盖、当前 generation、绑定和安装的必需组合；过时版本、撤权或缺链仍保持关闭。开放持久化成功后才能取密；停用/过期目标仍拒绝，不以恢复开关解除凭据自身停用。未结平台 operation、旧 refresh Token 与真实平台值的复核在 Epic 2/生产范围，当前 fixture 没有这些能力，不宣称已验证。
 
-完整 recovery.open 清单仍须放在同一请求中，保持1 MiB输入上限；分页采集不扩大这个容量，超限时继续关闭并停在人工处理点。运维门等待当前请求与审计排空期间不可取消，CLI超时不证明服务动作未执行；用非敏感状态和已校验包复核结果。大清单、大历史容量及生产连续RPO尚未验证。
+完整 recovery.open 清单仍须放在同一请求中，保持1 MiB输入上限；分页采集不扩大这个容量，超限时继续关闭并停在人工处理点。运维门等待当前请求与审计排空期间不可取消，CLI超时不证明服务动作未执行；用非敏感状态和已校验包复核结果。大清单及生产连续RPO尚未验证；历史容量仅覆盖下文明确的 fixture 范围。
 
 ## 备份空间与暂存目录的人工维护
 
@@ -66,6 +74,14 @@ hubd --fixture --state-dir /new-restored-state --fixture-key-file /recovery-mate
 在确认至少保留所需独立可恢复点及其受控副本后，人工按明确的绝对目录逐项清理确实过期的备份和停机后确认遗留的暂存目录；不使用跨父目录通配清理，不删除活动状态目录、数据库、实例锁或任何独立key材料。保留审计要求和恢复点覆盖范围仍由运维负责；释放空间后重新核验保留包再启动fixture，检查health和固定枚举告警。磁盘容量规划、备份份数策略与生产连续RPO须另做目标平台验收。
 
 ## Docker 演练
+
+历史容量工具 `tools/capacity.py --events 100000 --packages 150 --requests 100` 分别在手工备份和保留期间执行十并发查询，各操作保留100个完整样本，逐项检查重叠、p95≤2秒和15秒手工期限。报告逐个保留成功、失败和超时，不证明后台完整扫描已经结束。
+
+2026-10-10冻结源码实测：Docker UID10001、禁网、两CPU配额，150包共3,252,716,379bytes，200个查询全部成功；备份期间p95=1,935.176ms，保留期间p95=1,978.388ms，手工操作各约1.93/1.95秒。结果接近2秒门槛，仅证明该fixture环境。此前两次真实超限报告及误用旧二进制的无效报告均保留并明确FAIL，不能作为通过证据。
+
+完整历史扫描用 `HUB_CAPACITY_EVENTS=100000 HUB_CAPACITY_PACKAGES=150 GOMAXPROCS=2 taskset -c 0,1 go test -count=1 -run '^TestHistoricalCapacity$' -timeout 30m -v ./internal/adapters/backup` 单独测量。受控 WSL2 测量限定 CPU affinity 0–1、GOMAXPROCS=2，每包100,002事件、19,624,413 bytes，共150包：串行基线完整维护157,775.507ms，超过两分钟；最多四个且受GOMAXPROCS限制的并行全量校验后103,030.137ms。全部包仍逐份执行哈希、schema、记录和密钥验证，不缓存判断或明文，不裁剪历史。该结果仅覆盖实测环境与规模，不等同于 Docker CPU 配额或生产容量验收。
+
+最终源码在相同事件数/包数、affinity与GOMAXPROCS下完整维护83,719.130ms。其 `TMPDIR=/var/tmp` 使用WSL ext4；前述基线/103秒对照使用 `/tmp` tmpfs，因此不将最终时间直接当作同存储环境的性能提升比例。每条审计仍完整严格解码；复用的只有不可变Go字段类型元数据，检查不再积累整份审计事件列表。报告与构建来源见[修复验证记录](../_bmad-output/implementation-artifacts/review-remediation-validation.md)。
 
 ```powershell
 docker build -f Dockerfile.operations -t api-key-hub-operations:epic3 .

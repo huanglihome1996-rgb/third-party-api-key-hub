@@ -1,7 +1,7 @@
 ---
 title: Epic 3 平台无关代码与 Docker 验证记录
 status: local-scope-pass
-updated: 2026-10-09
+updated: 2026-10-10
 production_acceptance: incomplete
 ---
 
@@ -80,3 +80,7 @@ TestDailyScheduleSurvivesRestartDetectsInvalidAndSkipsClosed 还验证持久计�
 生产 OpenBao/AppRole/Transit 版本及独立身份材料；真实 TikTok US Seller 授权/刷新和恢复复核；Ubuntu/systemd、真实双架构、root/服务 UID 权限策略；系统拒绝/告警采集；健康真实 KMS 的性能；连续生产 RPO 和人工 RTO。规划原门槛不改为通过。
 
 本轮规模限制：recovery.open 的全部版本引用必须能装入既有1MiB请求，尚无批量复核协议；维护门排队等待不会即时响应context取消，进入后才安全拒绝取消请求。大历史审计量及大备份历史量的扫描开销尚未验证，不能从100次fixture样本扩称生产容量或deadline达标。
+
+## 后续审查修复证据
+
+以上数据保留为原 Epic 3 交付的历史记录。2026-10-09 的 party-mode 审查随后发现既有空业务/审计库可被初始化放行的问题，并实测150包历史完整扫描超过两分钟。后续 admission、恢复日志校验与有界并发扫描修复，以及新的明确规模容量结果，统一见[审查修复验证](review-remediation-validation.md)和[原审查及处置](../party-mode/reviews/2026-10-09-epic-3-code-review.md)。历史“尚未验证”的容量结论由该记录中的实测范围补充；任意历史量和真实生产验收仍未证明。

@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"github.com/third-party-api-key-hub/internal/application"
 	"github.com/third-party-api-key-hub/internal/domain"
@@ -10,6 +11,68 @@ import (
 	"testing"
 	"time"
 )
+
+func fixtureAuditEvent(at time.Time) application.AuditEvent {
+	return application.AuditEvent{Time: at, Operation: "app.list", Target: "unknown", Result: "success", OperationID: "op-test"}
+}
+
+func TestAuditAdmissionRejectsCorruptionAfterLongValidPrefix(t *testing.T) {
+	for _, damage := range []string{"{}", `{"time":"2026-10-09T00:00:00Z","operation":"app.list","target":"unknown","result":"success","operation_id":"op-test","unknown":true}`} {
+		path := filepath.Join(t.TempDir(), "audit.sqlite")
+		a, err := NewAudit(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(fixtureAuditEvent(time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = a.db.Exec("WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<512) INSERT INTO events(record) SELECT ? FROM n", string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = a.db.Exec("INSERT INTO events(record) VALUES(?)", damage); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = a.List(context.Background()); err == nil {
+			t.Fatal("late corrupted audit event listed")
+		}
+		a.Close()
+		if _, err = Inspect(context.Background(), path, true); err == nil {
+			t.Fatal("late corrupted audit event admitted in snapshot")
+		}
+		if a, err = NewAudit(path); err == nil {
+			a.Close()
+			t.Fatal("late corrupted audit event admitted at startup")
+		}
+	}
+}
+
+func TestAuditRecordValidationCancellationReleasesConnection(t *testing.T) {
+	a, err := NewAudit(filepath.Join(t.TempDir(), "audit.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	raw, err := json.Marshal(fixtureAuditEvent(time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.db.Exec("WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<20000) INSERT INTO events(record) SELECT ? FROM n", string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	if err = validateAuditRecords(ctx, a.db); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("audit scan ignored deadline: %v", err)
+	}
+	// With a single connection, a leaked cursor would block the next operation.
+	checkCtx, checkCancel := context.WithTimeout(context.Background(), time.Second)
+	defer checkCancel()
+	var count int
+	if err = a.db.QueryRowContext(checkCtx, "SELECT COUNT(*) FROM events").Scan(&count); err != nil || count != 20000 {
+		t.Fatalf("canceled scan leaked connection or changed records: count=%d err=%v", count, err)
+	}
+}
 
 func TestRetentionUTCStrictBoundaryAndFailClosed(t *testing.T) {
 	a, err := NewAudit(filepath.Join(t.TempDir(), "audit.sqlite"))
@@ -20,7 +83,7 @@ func TestRetentionUTCStrictBoundaryAndFailClosed(t *testing.T) {
 	now := time.Date(2024, 2, 29, 12, 0, 0, 0, time.UTC)
 	cutoff := RetentionCutoff(now)
 	for _, at := range []time.Time{cutoff.Add(-time.Nanosecond), cutoff, cutoff.Add(time.Nanosecond)} {
-		if err = a.Record(context.Background(), application.AuditEvent{Time: at}); err != nil {
+		if err = a.Record(context.Background(), fixtureAuditEvent(at)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -35,7 +98,7 @@ func TestRetentionUTCStrictBoundaryAndFailClosed(t *testing.T) {
 	if _, _, err = a.Retain(context.Background(), now.Add(-time.Second)); err == nil {
 		t.Fatal("rollback accepted")
 	}
-	a.Record(context.Background(), application.AuditEvent{Time: now.Add(time.Hour)})
+	a.Record(context.Background(), fixtureAuditEvent(now.Add(time.Hour)))
 	if _, _, err = a.Retain(context.Background(), now); err == nil {
 		t.Fatal("future accepted")
 	}
@@ -66,7 +129,7 @@ func TestRetentionIndependentCalendarUTCExamplesAndYoungEvent(t *testing.T) {
 	now := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
 	// Independent dates: a 30-day retention regression must not delete June's event.
 	for _, at := range []time.Time{time.Date(2024, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)} {
-		if err = a.Record(context.Background(), application.AuditEvent{Time: at}); err != nil {
+		if err = a.Record(context.Background(), fixtureAuditEvent(at)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -180,6 +243,13 @@ func TestActualV1MigrationRecoveryAndGapRemainAfterRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = db.Exec("CREATE TABLE metadata(version INTEGER NOT NULL, revision INTEGER NOT NULL, operation_seq INTEGER NOT NULL); INSERT INTO metadata VALUES(1,0,0)")
+	if err == nil {
+		for _, table := range []string{"apps", "shops", "brands", "internal_shops", "installations", "credentials"} {
+			if _, err = db.Exec("CREATE TABLE " + table + "(id TEXT PRIMARY KEY, record TEXT NOT NULL)"); err != nil {
+				break
+			}
+		}
+	}
 	db.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +294,7 @@ func TestRetentionPermissionRevocationRollsBack(t *testing.T) {
 	}
 	defer a.Close()
 	now := time.Now().UTC()
-	a.Record(context.Background(), application.AuditEvent{Time: now.AddDate(-2, 0, 0)})
+	a.Record(context.Background(), fixtureAuditEvent(now.AddDate(-2, 0, 0)))
 	if _, _, err = a.RetainAuthorized(context.Background(), now, func() bool { return false }); err == nil {
 		t.Fatal("revocation committed")
 	}

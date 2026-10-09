@@ -1,0 +1,10 @@
+{
+  "go_version": "go1.27.2",
+  "source_tree_sha256": "ad070ad56957dc2a164a40e418d48e2e9549ea1cda9b9b86e7ff19210c549105",
+  "build_version": "capacity-ad070ad56957dc2a164a40e418d48e2e9549ea1cda9b9b86e7ff19210c549105",
+  "source_provenance": "immutable snapshot of cmd/internal/go.mod/go.sum after admission source freeze",
+  "binary_sha256": {
+    "hub": "99dfb37063b5ea4b08fdaf436185d0fa0b317907897ac139f28fdfe0571a84cd",
+    "hubd": "b3396682fb1809e1d676900552a2c5880ba170cebf5b8a0a3e1403b73b90f6c1"
+  }
+}

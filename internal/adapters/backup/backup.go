@@ -19,7 +19,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -42,16 +44,63 @@ type Manager struct {
 	Root, KeyFile string
 	Repo          *sqlite.Repository
 	Audit         *sqlite.Audit
+	maintenanceMu sync.Mutex
+	foreground    int
+	resume        chan struct{}
+}
+
+// Foreground maintenance already holds the application's maintenance boundary.
+// Stop dispatching further historical validations while it runs so background
+// CPU work does not extend the interval during which requests are waiting.
+// In-flight package validation may finish; foreground work never waits on it.
+func (m *Manager) beginForeground() func() {
+	m.maintenanceMu.Lock()
+	if m.foreground == 0 {
+		m.resume = make(chan struct{})
+	}
+	m.foreground++
+	m.maintenanceMu.Unlock()
+	return func() {
+		m.maintenanceMu.Lock()
+		defer m.maintenanceMu.Unlock()
+		m.foreground--
+		if m.foreground == 0 {
+			close(m.resume)
+			m.resume = nil
+		}
+	}
+}
+
+func (m *Manager) waitBackground(ctx context.Context) error {
+	for {
+		m.maintenanceMu.Lock()
+		resume := m.resume
+		m.maintenanceMu.Unlock()
+		if resume == nil {
+			return ctx.Err()
+		}
+		select {
+		case <-resume:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // Schedule derives due time from verified durable packages rather than process
 // uptime. A restart cannot postpone a missed daily snapshot. Invalid packages
 // are counted for fixed-enum alerts and never replace the last valid package.
 func (m *Manager) Schedule(ctx context.Context, now time.Time) (time.Time, int, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return time.Time{}, 0, true, err
+	}
 	if SafePath(m.Root) != nil {
 		return time.Time{}, 0, true, errors.New("unsafe backup root")
 	}
 	entries, err := os.ReadDir(m.Root)
+	if ctx.Err() != nil {
+		return time.Time{}, 0, true, ctx.Err()
+	}
 	if errors.Is(err, os.ErrNotExist) {
 		return now.UTC(), 0, true, nil
 	}
@@ -60,28 +109,66 @@ func (m *Manager) Schedule(ctx context.Context, now time.Time) (time.Time, int, 
 	}
 	var latest time.Time
 	invalid := 0
-	for _, entry := range entries {
-		// Private staging is never a published recovery point, including when
-		// a concurrent backup is still writing it or a crash left it behind.
-		if strings.HasPrefix(entry.Name(), ".incomplete-") {
-			continue
+	// Independently verify every package, with a small CPU/connection/memory
+	// bound. Results retain only timestamps, never decrypted state or a cached
+	// validation decision. A cancelled scan cannot produce a successful schedule.
+	type result struct {
+		created time.Time
+		valid   bool
+	}
+	workers := min(4, runtime.GOMAXPROCS(0), len(entries))
+	jobs := make(chan string)
+	results := make(chan result, workers)
+	var pending sync.WaitGroup
+	for range workers {
+		pending.Add(1)
+		go func() {
+			defer pending.Done()
+			for path := range jobs {
+				if m.waitBackground(ctx) != nil {
+					return
+				}
+				manifest, _, err := Validate(ctx, path, m.KeyFile)
+				if ctx.Err() != nil {
+					return
+				}
+				at, _ := time.Parse(time.RFC3339Nano, manifest.CreatedAt)
+				observed := result{created: at, valid: err == nil && !at.After(now.UTC())}
+				select {
+				case results <- observed:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, entry := range entries {
+			// Private staging is never a published recovery point, including
+			// concurrent writes and abandoned stages after a crash.
+			if strings.HasPrefix(entry.Name(), ".incomplete-") {
+				continue
+			}
+			select {
+			case jobs <- filepath.Join(m.Root, entry.Name()):
+			case <-ctx.Done():
+				return
+			}
 		}
-		if ctx.Err() != nil {
-			return time.Time{}, invalid, true, ctx.Err()
-		}
-		manifest, _, err := Validate(ctx, filepath.Join(m.Root, entry.Name()), m.KeyFile)
-		if err != nil {
+	}()
+	go func() { pending.Wait(); close(results) }()
+	for observed := range results {
+		if !observed.valid {
 			invalid++
 			continue
 		}
-		at, _ := time.Parse(time.RFC3339Nano, manifest.CreatedAt)
-		if at.After(now.UTC()) {
-			invalid++
-			continue
+		if observed.created.After(latest) {
+			latest = observed.created
 		}
-		if at.After(latest) {
-			latest = at
-		}
+	}
+	if ctx.Err() != nil {
+		return time.Time{}, invalid, true, ctx.Err()
 	}
 	if latest.IsZero() {
 		return now.UTC(), invalid, true, nil
@@ -165,6 +252,8 @@ func write(path string, raw []byte) error {
 	return err
 }
 func (m *Manager) Backup(ctx context.Context, revision int64, gap bool, allowed func() bool) (v1.BackupResult, error) {
+	finish := m.beginForeground()
+	defer finish()
 	// Capture the conservative RPO reference before any snapshot work.
 	created := time.Now().UTC().Format(time.RFC3339Nano)
 	out := v1.BackupResult{}
@@ -251,6 +340,8 @@ func (m *Manager) Backup(ctx context.Context, revision int64, gap bool, allowed 
 	return v1.BackupResult{BackupID: backupID, Revision: revision, AuditGap: manifest.AuditGap, CreatedAt: created, Mode: "fixture"}, nil
 }
 func (m *Manager) Retention(ctx context.Context, now time.Time, allowed func() bool) (v1.RetentionResult, error) {
+	finish := m.beginForeground()
+	defer finish()
 	n, cutoff, err := m.Audit.RetainAuthorized(ctx, now, allowed)
 	return v1.RetentionResult{Removed: n, Cutoff: cutoff.Format(time.RFC3339Nano), Mode: "fixture"}, err
 }

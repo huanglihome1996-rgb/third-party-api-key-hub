@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"sync"
 	"time"
 )
 
@@ -161,6 +162,34 @@ func walkJSON(b []byte) error {
 	}
 	return nil
 }
+
+// Only immutable Go type metadata is shared. JSON bytes, decoded values and
+// validation decisions always belong to the current call.
+var strictFieldTypes sync.Map
+
+func fieldTypes(t reflect.Type) map[string]reflect.Type {
+	if cached, ok := strictFieldTypes.Load(t); ok {
+		return cached.(map[string]reflect.Type)
+	}
+	fields := make(map[string]reflect.Type, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		tag := f.Tag.Get("json")
+		for j, c := range tag {
+			if c == ',' {
+				tag = tag[:j]
+				break
+			}
+		}
+		if tag == "" {
+			tag = f.Name
+		}
+		fields[tag] = f.Type
+	}
+	actual, _ := strictFieldTypes.LoadOrStore(t, fields)
+	return actual.(map[string]reflect.Type)
+}
+
 func exactFields(b []byte, t reflect.Type) error {
 	if t == reflect.TypeOf(json.RawMessage{}) {
 		return nil
@@ -181,29 +210,13 @@ func exactFields(b []byte, t reflect.Type) error {
 		if json.Unmarshal(b, &m) != nil || m == nil {
 			return errors.New("object required")
 		}
-		fields := map[string]reflect.Type{}
-		nullable := map[string]bool{}
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-			tag := f.Tag.Get("json")
-			for j, c := range tag {
-				if c == ',' {
-					tag = tag[:j]
-					break
-				}
-			}
-			if tag == "" {
-				tag = f.Name
-			}
-			fields[tag] = f.Type
-			nullable[tag] = f.Type.Kind() == reflect.Pointer
-		}
+		fields := fieldTypes(t)
 		for k, v := range m {
 			ft, ok := fields[k]
 			if !ok {
 				return errors.New("unknown field")
 			}
-			if nullable[k] && bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+			if ft.Kind() == reflect.Pointer && bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
 				continue
 			}
 			if e := exactFields(v, ft); e != nil {

@@ -96,7 +96,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	repo, err := sqlite.New(business)
+	repo, err := sqlite.NewAdmitted(business, func(state application.State) error {
+		return application.ValidateRestoreState(state, p, application.FixtureProfiles())
+	})
 	if err != nil {
 		return err
 	}

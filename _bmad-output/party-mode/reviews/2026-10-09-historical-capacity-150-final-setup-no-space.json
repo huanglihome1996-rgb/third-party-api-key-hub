@@ -1,0 +1,25 @@
+{
+  "architecture": "amd64",
+  "audit_events": 100002,
+  "automatic_maintenance_target_ms": 120000,
+  "backup_ms": 909.548,
+  "cgroup_cpu_max": "max 100000",
+  "cgroup_memory_max": "max",
+  "cpu_affinity": "0-1",
+  "errors": {
+    "package_history_copy": "setup_failed"
+  },
+  "full_validation": false,
+  "go_version": "go1.27.2",
+  "gomaxprocs": 2,
+  "host_memory_total": "7984620 kB",
+  "kernel_release": "6.18.40.1-microsoft-standard-WSL2",
+  "measured_at": "2026-10-09T16:02:16.154450473Z",
+  "mode": "fixture",
+  "package_bytes": 19624413,
+  "packages": 150,
+  "phase": "package_history_copy",
+  "production_capacity_acceptance": "pending",
+  "secret_cache": false,
+  "status": "FAIL"
+}

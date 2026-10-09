@@ -2,11 +2,25 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"github.com/third-party-api-key-hub/internal/application"
 	"github.com/third-party-api-key-hub/internal/domain"
 	"path/filepath"
 	"testing"
 )
+
+// Raw fixture access is confined to tests; constructors always validate.
+func open(path string) (*sql.DB, error) {
+	db, _, err := openDatabase(path)
+	if err != nil {
+		return nil, err
+	}
+	if err = configureDurability(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
+}
 
 func TestRepositoryCASRestartAndCancelledCommit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "business.sqlite")

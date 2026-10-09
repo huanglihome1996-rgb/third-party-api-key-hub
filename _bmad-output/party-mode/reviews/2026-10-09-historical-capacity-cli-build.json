@@ -1,0 +1,10 @@
+{
+  "build_version": "capacity-e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+  "binary_sha256": {
+    "hub": "9cc5eb8ddd77c892ceec42fc4ae24650864c6c57eec2dd644a52ad6c282d1479",
+    "hubd": "80346a878741663d40948ae88e22e15d760890cc727b6b35bebb0a4734a1d5b8"
+  },
+  "source_provenance": "immutable snapshot after bounded foreground pause with complete package validation",
+  "source_tree_sha256": "e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+  "go_version": "go1.27.2"
+}

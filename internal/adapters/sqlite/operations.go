@@ -1,13 +1,11 @@
 package sqlite
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/third-party-api-key-hub/internal/application"
-	v1 "github.com/third-party-api-key-hub/internal/contract/v1"
 	"github.com/third-party-api-key-hub/internal/domain"
 	"net/url"
 	"os"
@@ -94,8 +92,8 @@ func (a *Audit) RetainAuthorized(ctx context.Context, now time.Time, allowed fun
 			rows.Close()
 			return 0, cutoff, err
 		}
-		var event application.AuditEvent
-		if v1.DecodeStrict(bytes.NewReader([]byte(raw)), &event) != nil || event.Time.IsZero() || event.Time.After(now) {
+		event, recordErr := decodeAuditEvent(raw)
+		if recordErr != nil || event.Time.After(now) {
 			rows.Close()
 			return 0, cutoff, errors.New("invalid audit clock or record")
 		}
@@ -134,6 +132,13 @@ func Inspect(ctx context.Context, path string, audit bool) (application.State, e
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
+	return inspectConnection(ctx, db, audit, false)
+}
+
+// Startup reuses the snapshot checks on a normal connection so SQLite can
+// recover committed WAL and hot rollback journals. Only startup accepts v1.
+func inspectConnection(ctx context.Context, db *sql.DB, audit, allowLegacy bool) (application.State, error) {
+	var err error
 	var integrity string
 	if err = db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
 		return application.State{}, errors.New("snapshot integrity rejected")
@@ -182,10 +187,13 @@ func Inspect(ctx context.Context, path string, audit bool) (application.State, e
 				return application.State{}, err
 			}
 		}
-		if err = schemaConstraints(db, names); err != nil {
+		if err = schemaConstraints(db, names, SchemaVersion); err != nil {
 			return application.State{}, err
 		}
-		if _, err = (&Audit{db: db}).List(ctx); err != nil {
+		if err = auditControlRecords(ctx, db, names); err != nil {
+			return application.State{}, err
+		}
+		if err = validateAuditRecords(ctx, db); err != nil {
 			return application.State{}, err
 		}
 		return application.State{}, nil
@@ -198,22 +206,120 @@ func Inspect(ctx context.Context, path string, audit bool) (application.State, e
 		if !names[name] {
 			return application.State{}, errors.New("business schema rejected")
 		}
+	}
+	var version, count int
+	if err = db.QueryRowContext(ctx, "SELECT COUNT(*),version FROM metadata").Scan(&count, &version); err != nil || count != 1 || (version != SchemaVersion && !(allowLegacy && version == 1)) {
+		return application.State{}, errors.New("schema version rejected")
+	}
+	for _, name := range expected {
 		cols := []string{"id:TEXT:0:1", "record:TEXT:1:0"}
 		if name == "metadata" {
 			cols = []string{"version:INTEGER:1:0", "revision:INTEGER:1:0", "operation_seq:INTEGER:1:0", "recovery_closed:INTEGER:1:0", "audit_gap:INTEGER:1:0"}
+			if version == 1 {
+				cols = cols[:3]
+			}
 		}
 		if err = columns(db, name, cols); err != nil {
 			return application.State{}, err
 		}
 	}
-	if err = schemaConstraints(db, names); err != nil {
+	if err = schemaConstraints(db, names, version); err != nil {
 		return application.State{}, err
 	}
-	var version, count int
-	if err = db.QueryRowContext(ctx, "SELECT COUNT(*),version FROM metadata").Scan(&count, &version); err != nil || count != 1 || version != SchemaVersion {
-		return application.State{}, errors.New("schema version rejected")
+	invalid := "typeof(version)!='integer' OR typeof(revision)!='integer' OR revision<0 OR revision=9223372036854775807 OR typeof(operation_seq)!='integer' OR operation_seq<0"
+	if version == SchemaVersion {
+		invalid += " OR typeof(recovery_closed)!='integer' OR recovery_closed NOT IN (0,1) OR typeof(audit_gap)!='integer' OR audit_gap NOT IN (0,1)"
 	}
-	return (&Repository{db: db}).Load(ctx)
+	if err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM metadata WHERE "+invalid).Scan(&count); err != nil || count != 0 {
+		return application.State{}, errors.New("metadata record rejected")
+	}
+	return (&Repository{db: db}).load(ctx, version == 1)
+}
+
+// Admission needs to validate every event, but does not need to retain the
+// entire decoded history in memory as the caller-facing List method does.
+func validateAuditRecords(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, "SELECT record FROM events ORDER BY id")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		var raw string
+		if err = rows.Scan(&raw); err != nil {
+			return err
+		}
+		if _, err = decodeAuditEvent(raw); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
+func auditControlRecords(ctx context.Context, db *sql.DB, names map[string]bool) error {
+	if names["retention_clock"] {
+		rows, err := db.QueryContext(ctx, "SELECT id,last_time FROM retention_clock")
+		if err != nil {
+			return err
+		}
+		count := 0
+		for rows.Next() {
+			var id int
+			var raw string
+			if err = rows.Scan(&id, &raw); err != nil {
+				rows.Close()
+				return err
+			}
+			at, parseErr := time.Parse(time.RFC3339Nano, raw)
+			count++
+			if count > 1 || id != 1 || parseErr != nil || at.IsZero() || at.Year() < 1970 {
+				rows.Close()
+				return errors.New("audit retention record rejected")
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+	}
+	var count, maximum int64
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*),COALESCE(MAX(id),0) FROM events WHERE typeof(id)!='integer' OR id<=0").Scan(&count, &maximum); err != nil || count != 0 {
+		return errors.New("audit event id rejected")
+	}
+	if err := db.QueryRowContext(ctx, "SELECT COALESCE(MAX(id),0) FROM events").Scan(&maximum); err != nil {
+		return err
+	}
+	if !names["sqlite_sequence"] {
+		return errors.New("audit sequence missing")
+	}
+	rows, err := db.QueryContext(ctx, "SELECT name,seq,typeof(seq) FROM sqlite_sequence")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	count = 0
+	for rows.Next() {
+		var name, typ string
+		var sequence int64
+		if err = rows.Scan(&name, &sequence, &typ); err != nil {
+			return err
+		}
+		count++
+		if count > 1 || name != "events" || typ != "integer" || sequence < maximum || sequence < 0 || sequence == 9223372036854775807 {
+			return errors.New("audit sequence record rejected")
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if maximum > 0 && count != 1 {
+		return errors.New("audit sequence record missing")
+	}
+	return nil
 }
 
 func columns(db *sql.DB, table string, expected []string) error {
@@ -243,7 +349,7 @@ func columns(db *sql.DB, table string, expected []string) error {
 
 // Fixed schema declarations reject added checks, foreign keys, collation,
 // uniqueness, generated columns and explicit indexes as well as missing flags.
-func schemaConstraints(db *sql.DB, names map[string]bool) error {
+func schemaConstraints(db *sql.DB, names map[string]bool, version int) error {
 	for name := range names {
 		var actual string
 		if err := db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", name).Scan(&actual); err != nil {
@@ -253,6 +359,9 @@ func schemaConstraints(db *sql.DB, names map[string]bool) error {
 		switch name {
 		case "metadata":
 			expected = "CREATE TABLE metadata(version INTEGER NOT NULL, revision INTEGER NOT NULL, operation_seq INTEGER NOT NULL, recovery_closed INTEGER NOT NULL DEFAULT 0, audit_gap INTEGER NOT NULL DEFAULT 0)"
+			if version == 1 {
+				expected = "CREATE TABLE metadata(version INTEGER NOT NULL, revision INTEGER NOT NULL, operation_seq INTEGER NOT NULL)"
+			}
 		case "events":
 			expected = "CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, record TEXT NOT NULL)"
 		case "retention_clock":

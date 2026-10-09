@@ -1,0 +1,17 @@
+{
+  "architecture": "amd64",
+  "audit_events": 100002,
+  "audit_list_ms": 950.428,
+  "backup_ms": 1037.47,
+  "full_validation": true,
+  "go_version": "go1.27.2",
+  "inspect_audit_ms": 977.539,
+  "measured_at": "2026-10-09T14:11:23.425596647Z",
+  "mode": "fixture",
+  "package_bytes": 19624413,
+  "packages": 100,
+  "production_capacity_acceptance": "pending",
+  "retention_ms": 1131.055,
+  "schedule_ms": 105121.411,
+  "secret_cache": false
+}

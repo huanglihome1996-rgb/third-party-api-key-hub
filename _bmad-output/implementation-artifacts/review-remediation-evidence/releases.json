@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "archives": [
+    {
+      "architecture": "amd64",
+      "sha256": "e32babfc7abffde8dbcf20893e0053eea8933ac27ee14c3e66bf134fadd5ce81",
+      "release": {
+        "format": 1,
+        "mode": "fixture",
+        "version": "0.2.0-fixture",
+        "source_revision": "b184fc1c30d1ebf12e05cb9c9b253db574636655",
+        "source_tree_sha256": "e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+        "build_version": "0.2.0-fixture-e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+        "go_version": "1.27.2",
+        "os": "linux",
+        "arch": "amd64",
+        "production_acceptance": "pending"
+      },
+      "internal_hashes_verified": 13,
+      "file_metadata_verified": true
+    },
+    {
+      "architecture": "arm64",
+      "sha256": "03268125973c0b1b27c30fb573194c1cb5bfab8b8984c31889ad825617715609",
+      "release": {
+        "format": 1,
+        "mode": "fixture",
+        "version": "0.2.0-fixture",
+        "source_revision": "b184fc1c30d1ebf12e05cb9c9b253db574636655",
+        "source_tree_sha256": "e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+        "build_version": "0.2.0-fixture-e37c83265714443d16e8f0759737498c8020d21281ad8037fc7bd3424b7ae922",
+        "go_version": "1.27.2",
+        "os": "linux",
+        "arch": "arm64",
+        "production_acceptance": "pending"
+      },
+      "internal_hashes_verified": 13,
+      "file_metadata_verified": true
+    }
+  ],
+  "arm64_execution": "not_verified_this_round"
+}

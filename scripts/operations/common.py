@@ -28,7 +28,9 @@ def request(hub, state, operation, payload=None, expected_error=None):
         result = subprocess.run([str(hub), '--socket', str(pathlib.Path(state) / 'hub.sock')],
                                 input=wire, capture_output=True, timeout=20, check=False)
         data = json.loads(result.stdout)
-    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired:
+        raise CheckFailed('cli_timeout') from None
+    except (OSError, ValueError):
         raise CheckFailed('cli_execution_failed') from None
     if not isinstance(data, dict):
         raise CheckFailed('invalid_cli_response')

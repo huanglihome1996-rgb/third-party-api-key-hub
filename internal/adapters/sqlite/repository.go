@@ -9,43 +9,124 @@ import (
 	"github.com/third-party-api-key-hub/internal/application"
 	v1 "github.com/third-party-api-key-hub/internal/contract/v1"
 	_ "modernc.org/sqlite"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 )
 
 type Repository struct{ db *sql.DB }
 
-func open(path string) (*sql.DB, error) {
+// openDatabase distinguishes an exclusively created file from existing storage.
+// Existing files are opened without CREATE or journaling changes: the first
+// read may recover a legitimate hot journal/WAL, but must never build schema.
+func openDatabase(path string) (*sql.DB, bool, error) {
+	info, err := os.Lstat(path)
+	existing := err == nil
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, false, err
+	}
+	if existing && !safeStorageMode(info) {
+		return nil, false, errors.New("unsafe database permissions or type")
+	}
+	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
+		info, err := os.Lstat(path + suffix)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, false, err
+		}
+		if !existing || !safeStorageMode(info) {
+			return nil, false, errors.New("unsafe or orphan database recovery file")
+		}
+	}
+	if existing {
+		if err := validateRecoveryFiles(path); err != nil {
+			return nil, false, err
+		}
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	created := err == nil
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return nil, false, err
+	}
+	if created {
+		if err = f.Close(); err != nil {
+			return nil, true, err
+		}
+	} else {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, false, err
+		}
+		if !safeStorageMode(info) {
+			return nil, false, errors.New("unsafe database permissions or type")
+		}
+	}
+	db, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: path, RawQuery: "mode=rw"}).String())
 	if err != nil {
-		return nil, err
-	}
-	f.Close()
-	if err = os.Chmod(path, 0600); err != nil {
-		return nil, err
-	}
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, err
+		return nil, created, err
 	}
 	db.SetMaxOpenConns(1)
-	if _, err = db.Exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;"); err != nil {
+	if _, err = db.Exec("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;"); err != nil {
 		db.Close()
-		return nil, err
+		return nil, created, err
 	}
-	return db, nil
+	return db, created, nil
 }
+
+func safeStorageMode(info os.FileInfo) bool {
+	return info.Mode().IsRegular() && (runtime.GOOS == "windows" || info.Mode().Perm()&0077 == 0)
+}
+
+func configureDurability(db *sql.DB) error {
+	_, err := db.Exec("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")
+	return err
+}
+
 func New(path string) (*Repository, error) {
-	db, err := open(path)
+	return NewAdmitted(path, nil)
+}
+
+// NewAdmitted validates existing semantic state and key binding before changing
+// durability settings or migrating a valid old schema. New retains the common
+// structural checks for internal callers without deployment-specific policy.
+func NewAdmitted(path string, admit func(application.State) error) (*Repository, error) {
+	db, created, err := openDatabase(path)
 	if err != nil {
 		return nil, err
 	}
 	r := &Repository{db: db}
-	if err = r.initialize(); err != nil {
+	if !created {
+		var state application.State
+		if state, err = inspectConnection(context.Background(), db, false, true); err == nil && admit != nil {
+			err = admit(state)
+		}
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
+	if err = configureDurability(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if created {
+		err = r.initialize()
+	} else {
+		var version int
+		err = db.QueryRow("SELECT version FROM metadata").Scan(&version)
+		if err == nil && version == 1 {
+			err = r.migrateLegacy()
+		}
+	}
+	if err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -57,43 +138,50 @@ func (r *Repository) initialize() error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.Exec("CREATE TABLE IF NOT EXISTS metadata(version INTEGER NOT NULL, revision INTEGER NOT NULL, operation_seq INTEGER NOT NULL)"); err != nil {
+	if _, err = tx.Exec("CREATE TABLE metadata(version INTEGER NOT NULL, revision INTEGER NOT NULL, operation_seq INTEGER NOT NULL, recovery_closed INTEGER NOT NULL DEFAULT 0, audit_gap INTEGER NOT NULL DEFAULT 0)"); err != nil {
 		return err
 	}
-	var version int
-	err = tx.QueryRow("SELECT version FROM metadata").Scan(&version)
-	if errors.Is(err, sql.ErrNoRows) {
-		_, err = tx.Exec("INSERT INTO metadata VALUES(1,0,0)")
-		version = 1
+	if _, err = tx.Exec("INSERT INTO metadata VALUES(2,0,0,0,0)"); err != nil {
+		return err
 	}
+	for _, table := range []string{"apps", "shops", "brands", "internal_shops", "installations", "credentials"} {
+		if _, err = tx.Exec("CREATE TABLE " + table + "(id TEXT PRIMARY KEY, record TEXT NOT NULL)"); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// Only a completely validated v1 database reaches this migration. No tables
+// or metadata rows are created while upgrading existing business storage.
+func (r *Repository) migrateLegacy() error {
+	tx, err := r.db.Begin()
 	if err != nil {
 		return err
 	}
-	if version != 1 && version != 2 {
-		return errors.New("unsupported schema")
-	}
-	if version == 1 {
-		for _, statement := range []string{"ALTER TABLE metadata ADD COLUMN recovery_closed INTEGER NOT NULL DEFAULT 0", "ALTER TABLE metadata ADD COLUMN audit_gap INTEGER NOT NULL DEFAULT 0", "UPDATE metadata SET version=2"} {
-			if _, err = tx.Exec(statement); err != nil {
-				return err
-			}
-		}
-	}
-	for _, table := range []string{"apps", "shops", "brands", "internal_shops", "installations", "credentials"} {
-		if _, err = tx.Exec("CREATE TABLE IF NOT EXISTS " + table + "(id TEXT PRIMARY KEY, record TEXT NOT NULL)"); err != nil {
+	defer tx.Rollback()
+	for _, statement := range []string{"ALTER TABLE metadata ADD COLUMN recovery_closed INTEGER NOT NULL DEFAULT 0", "ALTER TABLE metadata ADD COLUMN audit_gap INTEGER NOT NULL DEFAULT 0", "UPDATE metadata SET version=2"} {
+		if _, err = tx.Exec(statement); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
 }
 func (r *Repository) Load(ctx context.Context) (application.State, error) {
+	return r.load(ctx, false)
+}
+func (r *Repository) load(ctx context.Context, legacy bool) (application.State, error) {
 	var state application.State
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return state, err
 	}
 	defer tx.Rollback()
-	if err := tx.QueryRowContext(ctx, "SELECT revision,operation_seq,recovery_closed,audit_gap FROM metadata").Scan(&state.Revision, &state.NextOperation, &state.RecoveryClosed, &state.AuditGap); err != nil {
+	query := "SELECT revision,operation_seq,recovery_closed,audit_gap FROM metadata"
+	if legacy {
+		query = "SELECT revision,operation_seq,0,0 FROM metadata"
+	}
+	if err := tx.QueryRowContext(ctx, query).Scan(&state.Revision, &state.NextOperation, &state.RecoveryClosed, &state.AuditGap); err != nil {
 		return state, err
 	}
 	for table, dst := range map[string]any{"apps": &state.Apps, "shops": &state.Shops, "brands": &state.Brands, "internal_shops": &state.Internals, "installations": &state.Installations, "credentials": &state.Credentials} {
@@ -176,17 +264,33 @@ type Audit struct {
 }
 
 func NewAudit(path string) (*Audit, error) {
-	db, err := open(path)
+	db, created, err := openDatabase(path)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = db.Exec("CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, record TEXT NOT NULL)"); err != nil {
+	if !created {
+		if _, err = inspectConnection(context.Background(), db, true, false); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
+	if err = configureDurability(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if created {
+		_, err = db.Exec("CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, record TEXT NOT NULL)")
+	}
+	if err != nil {
 		db.Close()
 		return nil, err
 	}
 	return &Audit{db: db}, nil
 }
 func (a *Audit) Record(ctx context.Context, event application.AuditEvent) error {
+	if err := validateAuditEvent(event); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -206,12 +310,27 @@ func (a *Audit) List(ctx context.Context) ([]application.AuditEvent, error) {
 		if err = rows.Scan(&raw); err != nil {
 			return nil, err
 		}
-		var event application.AuditEvent
-		if err = v1.DecodeStrict(bytes.NewReader([]byte(raw)), &event); err != nil {
-			return nil, errors.New("invalid audit record")
+		event, err := decodeAuditEvent(raw)
+		if err != nil {
+			return nil, err
 		}
 		result = append(result, event)
 	}
 	return result, rows.Err()
+}
+
+func decodeAuditEvent(raw string) (application.AuditEvent, error) {
+	var event application.AuditEvent
+	if err := v1.DecodeStrict(bytes.NewReader([]byte(raw)), &event); err != nil {
+		return event, errors.New("invalid audit record")
+	}
+	return event, validateAuditEvent(event)
+}
+
+func validateAuditEvent(event application.AuditEvent) error {
+	if event.Time.IsZero() || strings.TrimSpace(event.Operation) == "" || strings.TrimSpace(event.Target) == "" || strings.TrimSpace(event.OperationID) == "" || (event.Result != "success" && event.Result != "failure") {
+		return errors.New("incomplete or invalid audit record")
+	}
+	return nil
 }
 func (a *Audit) Close() error { return a.db.Close() }

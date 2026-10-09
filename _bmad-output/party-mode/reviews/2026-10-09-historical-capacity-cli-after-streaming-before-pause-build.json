@@ -1,0 +1,10 @@
+{
+  "go_version": "go1.27.2",
+  "source_tree_sha256": "7f7920744e5bdf5a9dc78af6eba978a48a66df277d4b5115e020a24b16db4053",
+  "build_version": "capacity-7f7920744e5bdf5a9dc78af6eba978a48a66df277d4b5115e020a24b16db4053",
+  "source_provenance": "immutable snapshot after streaming audit and reflection metadata source freeze",
+  "binary_sha256": {
+    "hub": "155f04c09ed24db0dc3f790a4bf531f7f352850ebb60574e9a0f6a84ed342e8b",
+    "hubd": "0bbc4f17add6087a13d9e163ebec5c81f343d6c5c7e9a7d22928f4f668da9ece"
+  }
+}

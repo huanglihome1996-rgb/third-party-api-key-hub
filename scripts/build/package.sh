@@ -27,7 +27,7 @@ for arch in amd64 arm64; do
   cp deploy/systemd/* "$target/deploy/systemd/"
   cp deploy/fixture-backup.json "$target/deploy/"
   cp docs/operations.md "$target/OPERATIONS.md"
-  cp scripts/operations/common.py scripts/operations/benchmark.py scripts/operations/drill.py "$target/tools/"
+  cp scripts/operations/common.py scripts/operations/benchmark.py scripts/operations/drill.py scripts/operations/capacity.py "$target/tools/"
   sha256sum go.mod go.sum > "$target/modules.sha256"
   printf '{"format":1,"mode":"fixture","version":"%s","source_revision":"%s","source_tree_sha256":"%s","build_version":"%s-%s","go_version":"%s","os":"linux","arch":"%s","production_acceptance":"pending"}\n' "$version" "$revision" "$tree_hash" "$version" "$tree_hash" "$go_version" "$arch" > "$target/release.json"
   find "$target" -type d -exec chmod 0755 {} +
