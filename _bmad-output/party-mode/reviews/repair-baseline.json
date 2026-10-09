@@ -1,0 +1,25 @@
+{
+  "baseline_directory": "C:\\Users\\huang\\AppData\\Local\\Temp\\api-key-hub-doc-review-kyj6v54m",
+  "modified_files": [
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md",
+    "README.md",
+    "docs/project-brief.md",
+    "_bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md",
+    "_bmad-output/planning-artifacts/epics.md",
+    "_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md",
+    "_bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md"
+  ],
+  "baseline_sha256": {
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md": "98051fd671c7e1f83f70e8728cfc81d3841eaecf94bd05405afe37fc30462f9a",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md": "44af2aea840f2a5e6cd664a126a268644acf7ec8fe4f54dbff55366c09b59b3c",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md": "368e4128ebda9564f73329dd60ce7d5bddea3152b80275b78fe6b5fe1cd11dc6",
+    "README.md": "4c82940f7a57db31d814991f4e65f1843f621f7bb57fb777b5aa42496f40cf73",
+    "docs/project-brief.md": "8f8481262898f068dc8b795fa2c808ea5ba3dec325d3e0ea0de2d73ef44594ed",
+    "_bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md": "6674b32223def4dbf1062f3d4fcd7bbf6dee5e0ee69a33ccb6df237a59b5db72",
+    "_bmad-output/planning-artifacts/epics.md": "8fa755e43dcd37d92886293d14ec4362e33a0eff1834c866fcdc93c4916a3f4b",
+    "_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md": "d594bc2ebd3ceedec141fd87809839ecbb6cc68d1398280bc0815e8d316d5115",
+    "_bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md": "eb6819a6537201b40eb25579cd06f05c853924ce3b4f134f8b1c8a784e4ea9fb"
+  }
+}

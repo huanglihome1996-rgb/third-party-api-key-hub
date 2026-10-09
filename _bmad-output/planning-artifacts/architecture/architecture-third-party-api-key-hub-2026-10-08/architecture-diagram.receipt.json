@@ -1,0 +1,16 @@
+{
+  "diagram_type": "architecture",
+  "output": "D:/code/github/third-party-api-key-hub/_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/architecture-diagram.html",
+  "specification_sha256": "1a02e504043398d91e4561a5c4df148166147e977515d3e3005cdc44266567f8",
+  "specification_bytes": 3384,
+  "artifact_sha256": "c2f023dd26cb3970a6cd96bc26adfc0054bf7aa9489fa0f10421c006dd2c9be1",
+  "artifact_bytes": 811434,
+  "validation": "9/9 showcase, 0 errors, 0 warnings",
+  "browser_evidence": "passed",
+  "browser_evidence_receipt": "architecture-diagram.visual-check.json",
+  "visual_review": "passed",
+  "correction_rounds": 2,
+  "reviewed_at": "2026-10-08",
+  "review_scope": "Inspected the exact delivered HTML screenshots at 1440x900 and 2048x1320 in both light and dark themes. Main path, relationship labels, side branches and status cards are visible, no node clipping or label/route collision observed. Automatic browser containment passed at 1440x900, 1600x1000, 1920x1080 and 2048x1320.",
+  "architecture_status": "final; R-1 through R-10 accepted by user; implementation, performance and platform contract remain unverified"
+}

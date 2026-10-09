@@ -1,5 +1,7 @@
 # 项目简报
 
+> 历史输入：本页保留项目初始化时的目标与待确认事项；当前已确认的 TikTok Shop、OpenBao 和本地主机 CLI 边界以 [README 现行入口](../README.md#现行文档入口) 及 [SPEC](../_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md) 为准，不据本页重新询问选型。
+
 ## 目标
 
 建立一个可扩展的第三方平台接入基础，用于安全地配置、验证和管理不同平台的 API 凭据。

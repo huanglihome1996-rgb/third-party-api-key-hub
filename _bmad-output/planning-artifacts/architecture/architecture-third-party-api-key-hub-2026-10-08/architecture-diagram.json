@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "第三方 API 凭据中心 · 首期架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1390, 860]
+  },
+  "components": [
+    {"id":"local-cli","type":"frontend","label":"本地 CLI · hub","sublabel":"运维 / 内部脚本 · JSON","tag":"仅服务主机","pos":[50,390],"size":[210,90]},
+    {"id":"local-access","type":"security","label":"本地身份与权限","sublabel":"Unix Socket · 内核 UID","tag":"已采用","pos":[410,390],"size":[210,90]},
+    {"id":"core-daemon","type":"backend","label":"Go 服务 · hubd","sublabel":"领域规则 / 生命周期 / 查询","tag":"systemd 常驻","pos":[770,390],"size":[220,90]},
+    {"id":"metadata-store","type":"database","label":"业务存储 · SQLite","sublabel":"关系 / 当前状态 / 凭据密文","tag":"已采用","pos":[1150,390],"size":[220,90]},
+    {"id":"seller-platform","type":"external","label":"TikTok Shop","sublabel":"店铺授权 / Token 接口","tag":"具体契约待核实","pos":[770,90],"size":[220,90]},
+    {"id":"callback-entry","type":"backend","label":"授权回调入口","sublabel":"校验会话 / 幂等处理","tag":"独立公开入口","pos":[410,90],"size":[210,90]},
+    {"id":"provider-adapter","type":"backend","label":"TikTok 适配器","sublabel":"兑换 / 验证 / 后台刷新","tag":"Go 服务内部模块","pos":[1150,90],"size":[220,90]},
+    {"id":"transit-protection","type":"security","label":"密钥保护 · OpenBao","sublabel":"Transit 加解密 / 密钥轮换","tag":"已采用","pos":[770,690],"size":[220,90]},
+    {"id":"audit-events","type":"database","label":"审计与告警","sublabel":"audit.sqlite / journald","tag":"审计至少保留一年","pos":[1150,690],"size":[220,90]}
+  ],
+  "connections": [
+    {"id":"cli-local-request","from":"local-cli","to":"local-access","label":"管理 / 取密","variant":"emphasis"},
+    {"id":"checked-operation","from":"local-access","to":"core-daemon","label":"资格校验","variant":"security","labelAt":[654,436]},
+    {"id":"current-state","from":"core-daemon","to":"metadata-store","label":"原子读写","variant":"emphasis","labelAt":[1120,436]},
+    {"id":"platform-callback","from":"seller-platform","to":"callback-entry","label":"HTTPS 回调"},
+    {"id":"accepted-callback","from":"callback-entry","to":"core-daemon","label":"关联更新"},
+    {"id":"provider-operation","from":"core-daemon","to":"provider-adapter","label":"平台能力"},
+    {"id":"platform-api-call","from":"provider-adapter","to":"seller-platform","label":"受控 API 请求"},
+    {"id":"secret-protection","from":"core-daemon","to":"transit-protection","label":"TLS 加解密","variant":"security","labelAt":[880,580]},
+    {"id":"safe-audit","from":"core-daemon","to":"audit-events","label":"安全审计","variant":"dashed"}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"业务取密","items":["完整店铺 → 品牌 → 内部店铺归属链","App 调用凭据与店铺 Token 整体返回"]},
+    {"dot":"rose","title":"边界与保护","items":["取密仅限服务主机获授权的 CLI","公开回调与本地管理入口分开"]},
+    {"dot":"amber","title":"已确认方案","items":["Unix Socket、SQLite、OpenBao 已采用","Vaultwarden 自动同步属于后续范围"]}
+  ]
+}

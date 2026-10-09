@@ -1,0 +1,111 @@
+{
+  "ok": true,
+  "scope": "Document structure, local links, identity preservation, dependency/coverage receipt and artifact hashes; independent semantic review is separate. No runtime/implementation validation.",
+  "markdown_files_checked": 20,
+  "local_links_checked": 94,
+  "identity_preservation": {
+    "AD": 14,
+    "FR": 12,
+    "CAP": 12,
+    "Story": 34
+  },
+  "stories": 34,
+  "acceptance_scenarios": 157,
+  "dependency_edges": 167,
+  "readiness": "FAIL",
+  "diagram_receipts_match": {
+    "architecture-diagram.json": true,
+    "architecture-diagram.html": true
+  },
+  "input_diff_summary": {
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md": {
+      "added_lines": 11,
+      "removed_lines": 9
+    },
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md": {
+      "added_lines": 18,
+      "removed_lines": 15
+    },
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md": {
+      "added_lines": 5,
+      "removed_lines": 3
+    },
+    "README.md": {
+      "added_lines": 12,
+      "removed_lines": 0
+    },
+    "docs/project-brief.md": {
+      "added_lines": 2,
+      "removed_lines": 0
+    },
+    "_bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md": {
+      "added_lines": 3,
+      "removed_lines": 1
+    },
+    "_bmad-output/planning-artifacts/epics.md": {
+      "added_lines": 115,
+      "removed_lines": 30
+    },
+    "_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md": {
+      "added_lines": 5,
+      "removed_lines": 5
+    },
+    "_bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md": {
+      "added_lines": 5,
+      "removed_lines": 3
+    }
+  },
+  "errors": [],
+  "warnings": [],
+  "closed_document_findings": {
+    "PM-01": true,
+    "PM-02": true,
+    "PM-03": true,
+    "PM-04": true,
+    "PM-05": true,
+    "PM-06": true
+  },
+  "architecture_lint": {
+    "ok": true,
+    "spine": "ARCHITECTURE-SPINE.md",
+    "total_findings": 0,
+    "by_severity": {},
+    "findings": []
+  },
+  "independent_reviews": {
+    "review-party-repair-adversarial.md": {
+      "verdict": "PASS",
+      "sha256": "eaabf3db80304184d4ae884d2d1e0d9cf9bed2559b85a6ddd899cc0f933c7da5"
+    },
+    "review-party-repair-rubric.md": {
+      "verdict": "PASS",
+      "sha256": "cd4c62911a1bf24040c345f6bf1795809e4d809f906f109b9bb198662709c7be"
+    },
+    "review-party-repair-technology.md": {
+      "verdict": "PASS",
+      "sha256": "5230b641118e5e2607816f37fc29ee86e8730069ec85b6b4bd465622afcb51d4"
+    }
+  },
+  "checked_markdown_sha256": {
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md": "d98e4172da2ed2c4563e20b8930278c6de550a84b40fa3ba6c66666ce32286d1",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md": "9f4746f4b4503190635ead03d5673aab9b158bb98167f878d96356a19ba0bd60",
+    "_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md": "d41be750595dda6c2a433ea622b61c14f2e4848f5132d2eb77a9b97620d387d2",
+    "README.md": "63f5e9b1f6afefb30a3303dbab7db627836d6d1e48a2c29e401c5e279111ba63",
+    "docs/project-brief.md": "39db2135b11bc22cf5d2ab5c8db98c7a38ed7279087024ff326bae95b866fa1b",
+    "_bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md": "828a42716e9a79c06e44115826a1927aa5e100fb153a4254e5cc758fb872a31c",
+    "_bmad-output/planning-artifacts/epics.md": "1549664991c4d0f16d280717f8a4beac6dac2981b4a949d256a0a7b95f2eca24",
+    "_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md": "2e43ff030dfec93e790a5512afd8520c6db1a8fa0f15f5b77c15aa52d40eba42",
+    "_bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md": "5b1aeebc9c3cc26ff93bc420ad890bae53d3201fe94d3f2f209c93bb8922e079",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/credential-state.md": "f5c7ee91bca8d081cd191e2fba21885093b324966a6b1c0aa3d17dbeb0f89158",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/response-compatibility.md": "8f53120710bff3ca990aa6e0d13b72b49fea64226aa91e9d1082b421bc27c517",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/pending-results.md": "5dfaa432295b05f6fe59033b64fe67f9ae69b8fd6a7733daf3540b12c7535b17",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/review-summary.md": "ade02f07160131f99d9da2ca662df82cc21e67229499eb983500c0845c857d5e",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/recommended-decisions.md": "c07079bfb81fae8839c11223bd67cd99fbbe3fad0f6753826d78b3f3c6d040bf",
+    "_bmad-output/planning-artifacts/CE-VALIDATION.md": "b4f11b178dae7fe0d7c151bbb391d8e603007e614f103805fe5c1de6d463a380",
+    "_bmad-output/party-mode/reviews/2026-10-08-document-review.md": "7b8321ba9c2d659c2dd1d7dec8bfccfbe2b3ed1ca000668067ddbb93dd141ba0",
+    "_bmad-output/party-mode/reviews/2026-10-08-document-repair.md": "047c1841c87e621a1edb3139ced7d6c94298fbee34492de798778fbfb9d5d883",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/reviews/review-party-repair-adversarial.md": "eaabf3db80304184d4ae884d2d1e0d9cf9bed2559b85a6ddd899cc0f933c7da5",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/reviews/review-party-repair-rubric.md": "cd4c62911a1bf24040c345f6bf1795809e4d809f906f109b9bb198662709c7be",
+    "_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/reviews/review-party-repair-technology.md": "5230b641118e5e2607816f37fc29ee86e8730069ec85b6b4bd465622afcb51d4"
+  }
+}

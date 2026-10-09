@@ -2,10 +2,12 @@
 title: "第三方平台 API 凭据管理中心"
 status: final
 created: 2026-09-29
-updated: 2026-09-30
+updated: 2026-10-08
 ---
 
 # 产品简报：第三方平台 API 凭据管理中心
+
+> 本页保留原产品简报基线及当时交接事项；后续已接受的本地主机 CLI、OpenBao 与状态/兼容规则以 [PRD](../../prds/prd-third-party-api-key-hub-2026-10-08/prd.md) 和 [SPEC](../../../specs/spec-third-party-api-key-hub/SPEC.md) 为准。原“待确认”不重开现行决定。
 
 ## 执行摘要
 

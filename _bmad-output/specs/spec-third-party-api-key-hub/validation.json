@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "capabilities": 12,
+  "companions": 4,
+  "adopted_inputs": [
+    {
+      "path": "../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md",
+      "sha256": "9f4746f4b4503190635ead03d5673aab9b158bb98167f878d96356a19ba0bd60"
+    },
+    {
+      "path": "../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md",
+      "sha256": "d41be750595dda6c2a433ea622b61c14f2e4848f5132d2eb77a9b97620d387d2"
+    },
+    {
+      "path": "../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md",
+      "sha256": "d98e4172da2ed2c4563e20b8930278c6de550a84b40fa3ba6c66666ce32286d1"
+    }
+  ],
+  "open_questions": 5,
+  "assumptions": 0,
+  "errors": [],
+  "coherence_review": "passed",
+  "preservation_review": "All FR-1..12, NFR-1..6, SM-1..8/SM-C1/SM-C2, Q-1..11, A-1/A-2, PF-1/PF-2, AD-1..14 and operational/implementation constraints remain in mandatory adopted companions with current-state routing.",
+  "scope": "Document checks and source preservation; no implementation or live integration validation.",
+  "architecture_companions": [
+    {
+      "path": "../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/credential-state.md",
+      "sha256": "f5c7ee91bca8d081cd191e2fba21885093b324966a6b1c0aa3d17dbeb0f89158"
+    },
+    {
+      "path": "../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/response-compatibility.md",
+      "sha256": "8f53120710bff3ca990aa6e0d13b72b49fea64226aa91e9d1082b421bc27c517"
+    },
+    {
+      "path": "../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/pending-results.md",
+      "sha256": "5dfaa432295b05f6fe59033b64fe67f9ae69b8fd6a7733daf3540b12c7535b17"
+    }
+  ],
+  "artifact_sha256": "2e43ff030dfec93e790a5512afd8520c6db1a8fa0f15f5b77c15aa52d40eba42",
+  "implementation_gates_sha256": "5b1aeebc9c3cc26ff93bc420ad890bae53d3201fe94d3f2f209c93bb8922e079",
+  "review_repair": "PM-01..PM-06 source changes preserved; stable CAP-1..CAP-12; transitive architecture companions mandatory."
+}

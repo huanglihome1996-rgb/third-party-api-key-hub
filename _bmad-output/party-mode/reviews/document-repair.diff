@@ -1,0 +1,705 @@
+--- _bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md before
++++ _bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md current
+@@ -12,12 +12,14 @@
+ sources:
+   - ../../prds/prd-third-party-api-key-hub-2026-10-08/prd.md
+   - ../../prds/prd-third-party-api-key-hub-2026-10-08/addendum.md
+-companions: [recommended-decisions.md, technology-evidence.md, architecture-diagram.html]
++companions: [recommended-decisions.md, technology-evidence.md, credential-state.md, response-compatibility.md, pending-results.md, architecture-diagram.html]
+ ---
+ 
+ # 首期架构契约
+ 
+ 供架构、CLI、平台接入及后续 Epic 构建者共同引用。产品基线以 [PRD](../../prds/prd-third-party-api-key-hub-2026-10-08/prd.md) 为准。用户于 2026-10-08 回复“全部采用”，接受 [R-1 至 R-10](recommended-decisions.md) 及其架构规则；`[ADOPTED]` 表示已确认选择，原草案假设已由本次决定取代。技术核实依据见 [technology-evidence.md](technology-evidence.md)，接受方案不代表实现、安装、性能验收或平台联调通过。
++
++2026-10-08 用户要求按 Party 审查 PM-01 至 PM-06 全部修订；状态证据、响应扩展和结果保护细化已采用，原 AD 编号及技术选择保留。强制补充见 [凭据状态转换](credential-state.md)、[响应兼容](response-compatibility.md)、[待处置结果保护](pending-results.md)。完整编码设计及实证仍受 Story/SQ 门槛约束。
+ 
+ ## Design Paradigm
+ 
+@@ -76,13 +78,13 @@
+ 
+ - **Binds:** NFR-1、NFR-6、SM-8、Q-9。
+ - **Prevents:** 明文进入 DB/备份、密钥与密文同库、密钥后端和状态库双写失配。
+-- **Rule:** [ADOPTED] 生产支持专用密钥管理服务；Vaultwarden 尚未被选作生产后端。[ADOPTED] 首期使用 OpenBao Transit 保护密钥，SQLite 仅保存密文、密钥版本引用和非敏感状态。`SecretProtector.Seal/Open` 由用例调用，生产密钥不得导出或落业务库；每份密文绑定目标、类型和 generation，并在解密后验证绑定，防止交换密文跨目标使用。加密成功之后密文及当前元数据在业务事务原子提交，失败不得替换旧记录。生产无明文降级或明文磁盘/跨请求缓存；OpenBao 不可用时，取密/需加解密的操作整体失败，但不把依赖故障标记为平台失效。TLS 校验 CA/主机身份，AppRole 最小授权；bootstrap SecretID 由 systemd credential 文件供给，不写 unit 字面量、命令参数或生产环境变量。开发/测试只用虚构秘密和隔离后端。
++- **Rule:** [ADOPTED] 生产支持专用密钥管理服务；Vaultwarden 尚未被选作生产后端。[ADOPTED] 首期使用 OpenBao Transit 保护密钥，SQLite 仅保存密文、密钥版本引用和非敏感状态。`SecretProtector.Seal/Open` 由用例调用，生产密钥不得导出或落业务库；当前凭据密文以 purpose=current-credential 绑定目标、类型和 generation，解密后验证；待处置平台结果以 purpose=pending-provider-result 绑定 operation、App、epoch/profile 与依赖快照，两个用途不得互换，规则见 pending-results.md。加密成功之后密文及当前元数据在业务事务原子提交，失败不得替换旧记录。生产无明文降级或明文磁盘/跨请求缓存；OpenBao 不可用时，取密/需加解密的操作整体失败，但不把依赖故障标记为平台失效。TLS 校验 CA/主机身份，AppRole 最小授权；bootstrap SecretID 由 systemd credential 文件供给，不写 unit 字面量、命令参数或生产环境变量。开发/测试只用虚构秘密和隔离后端。
+ 
+ ### AD-7 — 可用性由正交字段组成
+ 
+ - **Binds:** FR-6 至 FR-9、SM-4、Q-5、Q-6。
+ - **Prevents:** 刷新成功解除停用、暂时验证失败覆盖原状态、未知期限被解释为无限期。
+-- **Rule:** [ADOPTED] 运维确认与平台验证可区分；未知期限经运维确认可用；暂时验证失败标记未完成且保留原可用状态。停用须在重新授权/显式替换之后由运维显式恢复，后台刷新、验证成功、映射恢复均不能自动解除停用。[ADOPTED] 每份当前凭据分别记录 `generation`、`disabled`、`disabled_generation`、`confirmed_by_operator`、`validation_result`、`expires_at` 与 `expiry_known`。恢复须具备晚于停用时版本的新授权/替换并重查当前有效性、完整映射及管理资格。`expired` 由已知 `expires_at <= now` 判定，不能通过刷新失败推导；验证不确定不恢复已过期/停用值。明确失效也执行停用且留下非敏感原因。
++- **Rule:** [ADOPTED] 运维确认与平台验证可区分；未知期限经运维确认可用；暂时验证失败标记未完成且保留原可用状态。停用须在重新授权/显式替换之后由运维显式恢复，后台刷新、验证成功、映射恢复均不能自动解除停用。[ADOPTED] 每份当前凭据的版本证据、来源、期限、停用和持久化恢复资格按 [credential-state.md](credential-state.md) 的字段及事件转换表保存。确认/验证只证明其绑定 generation；换值重置旧证据，暂时验证故障只记录尝试而不覆盖同版本确定证据。恢复须具有停用后明确替换/重授权的业务事务证据，刷新递增 generation 不能创建资格；再次停用清空资格。mark-invalid、确认和恢复携带 expected_generation，旧值失效报告不得停用新值，主动 disable 独立表达停用当前目标。恢复仍重查当前有效性、完整映射及管理资格。`expired` 由已知 `expires_at <= now` 判定，不能通过刷新失败推导；验证不确定不恢复已过期/停用值。明确失效也执行停用且留下非敏感原因。
+ 
+ ### AD-8 — 完整业务组合与选择
+ 
+@@ -94,7 +96,7 @@
+ 
+ - **Binds:** FR-7、FR-8、Q-6、Q-7。
+ - **Prevents:** 多任务同时轮换、过期请求无限等待刷新、旧响应覆盖新值或假定外部 exactly-once。
+-- **Rule:** [ADOPTED] 支持刷新的凭据自动维护；失败时旧值仍有效且未停用可返，过期/停用后拒绝。[ADOPTED] 取密不触发即时平台刷新，后台按持久化 `next_attempt_at` 调度。App 级和安装级均使用同一维护入口；规范化 `refresh_resource_id` 归属 App 或安装。共享同一远端 grant/refresh secret 的安装必须引用同一 resource，不复制为独立轮换任务；依赖当前值及其新 generation 在同一业务事务更新。所有可能改变远端凭据的兑换/重新授权/刷新共用 application 的 App 级排他协调，直到平台结果安全终结才释放；尚未知道店铺身份也使用 App 范围，首期不缩小。浏览器等待授权阶段不持网络操作门。领取前持久化 operation 和 AD-5 的版本快照；任何可能已有远端副作用但结果未安全保存/提交的故障，包括成功后的 KMS/DB 失败、权限撤销、CAS 冲突及崩溃，都进入待处置/`indeterminate` 路径。启动发现未终结操作时阻止该 App 进一步自动轮换，只有平台复核或受控重新授权恢复流程能解除。安全保存的加密结果只能重试本地条件提交，不能再调用平台；尚未安全保存的秘密不得转明文落盘。只有明确可重试且无不确定副作用的失败才有界退避；受控恢复授权与普通自动轮换区分，仍经同一 App 门。旧值有效性按已核实轮换契约及明确证据复核；KMS/DB 故障本身不是平台失效证据，不宣称旧值一定仍有效。不把 CAS 当远端 exactly-once，不重放未经证明幂等的调用。资源映射、轮换分类与调度参数须由已核实 profile 提供。
++- **Rule:** [ADOPTED] 支持刷新的凭据自动维护；失败时旧值仍有效且未停用可返，过期/停用后拒绝。[ADOPTED] 取密不触发即时平台刷新，后台按持久化 `next_attempt_at` 调度。App 级和安装级均使用同一维护入口；规范化 `refresh_resource_id` 归属 App 或安装。共享同一远端 grant/refresh secret 的安装必须引用同一 resource，不复制为独立轮换任务；依赖当前值及其新 generation 在同一业务事务更新。所有可能改变远端凭据的兑换/重新授权/刷新共用 application 的 App 级排他协调，直到平台结果安全终结才释放；尚未知道店铺身份也使用 App 范围，首期不缩小。浏览器等待授权阶段不持网络操作门。领取前持久化 operation 和 AD-5 的版本快照；任何可能已有远端副作用但结果未安全保存/提交的故障，包括成功后的 KMS/DB 失败、权限撤销、CAS 冲突及崩溃，都进入待处置/`indeterminate` 路径。启动发现未终结操作时阻止该 App 进一步自动轮换，只有已保护完整结果通过本地条件提交安全终结，或平台复核/受控重新授权明确安全终结，才能解除对应阻塞。安全保存的加密结果只能重试本地条件提交，不能再调用平台；尚未安全保存的秘密不得转明文落盘。只有明确可重试且无不确定副作用的失败才有界退避；受控恢复授权与普通自动轮换区分，仍经同一 App 门。旧值有效性按已核实轮换契约及明确证据复核；KMS/DB 故障本身不是平台失效证据，不宣称旧值一定仍有效。不把 CAS 当远端 exactly-once，不重放未经证明幂等的调用。资源映射、轮换分类与调度参数须由已核实 profile 提供。受保护结果的用途绑定、状态与本地条件提交按 [pending-results.md](pending-results.md)；其完整编码设计由 1.2、隔离交换/重启验证由 1.6 产出，未通过时 2.4/2.5/2.7 不可定稿实施。
+ 
+ ### AD-10 — 回调独立边界与持久化幂等
+ 
+@@ -118,7 +120,7 @@
+ 
+ - **Binds:** FR-6、FR-10、NFR-5、Q-3、Q-5、Q-10。
+ - **Prevents:** 各命令独自设计字段/退出码、输入秘密出现在参数或缺项脚本进入交互。
+-- **Rule:** [ADOPTED] 成败 stdout 均 JSON，诊断 stderr，退出码成功 0/失败 1；同一主版本不破坏已有字段/类型/含义；导入支持隐藏交互和 stdin。[ADOPTED] `internal/contract/v1` 唯一拥有 DTO、错误码和内部操作清单，Unix IPC 使用 HTTP/1.1 JSON `/v1/operations`，最大请求 1 MiB，单请求连接及严格 schema。成功查询三组 `identity`、`credentials`、`status`；credentials 按 `app`/`shop` 各含 type/value 列表，status 同 type 对应可用状态、`expiry_known`、`expires_at`（未知为 null），identity 含全部归属稳定标识。失败仅含 `error`、安全 `message`。稳定码为 `input_invalid`、`not_found`、`selection_required`、`mapping_incomplete`、`mapping_mismatch`、`permission_denied`、`credential_missing`、`credential_expired`、`credential_disabled`、`internal_error`；依赖故障映射最后一类。先校验身份/权限，再输入与对象存在性、选择、归属、必需字段、停用、过期、解密与内部故障；未获权限者不披露对象信息。命令语法在 CLI Story 前生成完整 schema/示例/契约测试，服务与 CLI 不另造编码。导入 stdin 为一个严格 JSON 对象读至 EOF，缺项直接失败；只有显式 interactive 且 TTY 可用才隐藏读取，恢复 TTY 并处理取消，秘密不得用命令参数输入。命令结果及诊断不回传导入值。
++- **Rule:** [ADOPTED] 成败 stdout 均 JSON，诊断 stderr，退出码成功 0/失败 1；同一主版本不破坏已有字段/类型/含义；导入支持隐藏交互和 stdin。[ADOPTED] `internal/contract/v1` 唯一拥有 DTO、错误码和内部操作清单，Unix IPC 使用 HTTP/1.1 JSON `/v1/operations`，最大请求 1 MiB，单请求连接及严格 schema。成功查询三组 `identity`、`credentials`、`status`；credentials 按 `app`/`shop` 各含 type/value 列表，status 同 type 对应正整数 `generation`、可用状态、`expiry_known`、`expires_at`（未知为 null），identity 含全部归属稳定标识。失败仅含 `error`、安全 `message`。稳定码为 `input_invalid`、`not_found`、`selection_required`、`mapping_incomplete`、`mapping_mismatch`、`permission_denied`、`credential_missing`、`credential_expired`、`credential_disabled`、`internal_error`；依赖故障映射最后一类。先校验身份/权限，再输入与对象存在性、选择、归属、必需字段、停用、过期、解密与内部故障；未获权限者不披露对象信息。命令语法在 CLI Story 前生成完整 schema/示例/契约测试，服务与 CLI 不另造编码。请求严格性与成功响应的非敏感元数据扩展分别按 [response-compatibility.md](response-compatibility.md)；旧 CLI 校验已知字段并重建输出，不透传未知字段，未知秘密类型/字段仍拒绝。导入 stdin 为一个严格 JSON 对象读至 EOF，缺项直接失败；只有显式 interactive 且 TTY 可用才隐藏读取，恢复 TTY 并处理取消，秘密不得用命令参数输入。命令结果及诊断不回传导入值。
+ 
+ ### AD-14 — 部署、备份及恢复边界
+ 
+@@ -133,11 +135,11 @@
+ | 标识 | 标识为区分大小写的字符串，外部数字 ID 仍按字符串处理；中心业务 ID 不从显示名生成，不静默 trim/重命名。输入长度、合法字符及缺值规则归 contract/v1。 |
+ | 时间 | UTC RFC3339 输出；已知到期以绝对时间判定，未知 null＋expiry_known=false；服务时钟不可信时停止依赖期限的取密及调度并告警。 |
+ | 秘密用途 | 每类型有 app/shop scope、business/management purpose、required 标志；provider profile 定义，核心只依其能力，不写死 TikTok 字段。 |
+-| 状态 | 可用性由 AD-7 正交字段计算，不存多个互相矛盾的 ready/active 缓存；停用与凭据值更新分开。 |
++| 状态 | AD-7/credential-state.md 固定换值、确认、验证、停用和恢复转换；确认/验证证据绑定秘密版本，恢复来源证据与业务值同事务，不能只从 generation 或审计推断。 |
+ | 秘密值版本 | `generation` 仅属于一份逻辑凭据（中心目标＋type），初值 1；每次成功替换/重新授权/刷新当前秘密值时递增。停用、验证、运维确认、恢复、期限元数据/映射变更不推进它；密文绑定和 `disabled_generation` 均引用这一值版本。 |
+-| 状态版本 | 每对象 `row_revision` 在该对象任何领域状态变更时递增；凭据秘密值更新同时推进 generation 和 row_revision。同 App 下凭据/安装变更另推进 App 聚合 row_revision，操作快照包含它及已知 resource/依赖对象修订号。用于 CAS 的修订号绝不写入密文绑定。 |
++| 状态版本 | 每对象 `row_revision` 在该对象任何领域状态变更时递增；凭据秘密值更新同时推进 generation 和 row_revision。同 App 下凭据/安装变更另推进 App 聚合 row_revision，操作快照包含它及已知 resource/依赖对象修订号。current-credential绑定不含状态CAS或会话版本；pending-provider-result必须认证绑定领取时依赖row_revision快照和适用epoch，解密后仍重新比较当前CAS/epoch，包的绑定不能代替并发复核。 |
+ | 授权会话版本 | `authorization_epoch` 是 App 级授权意图序号，每次创建新的授权会话递增，随会话保存；兑换与最终提交都核对它。它不是秘密值版本或对象 CAS。 |
+-| 输入/输出 | 本中心结果严格 DTO；未知操作、重复/未知 JSON 字段和超限体拒绝；未知 provider 扩展字段保留在适配器私有规范化层，不影响公共编码。 |
++| 输入/输出 | 请求拒绝未知操作/字段、重复字段及超限体。成功响应仅在 response-compatibility.md 指定元数据位置允许可选扩展，CLI 不透传未知字段；凭据和错误对象严格。未知 provider 扩展不进入公共编码或暂存结果。 |
+ | 配置 | root 原子替换授权策略；服务配置与 provider profile 启动加载，改动经受控重启；普通本地环境变量仅开发入口，生产秘密用 credential 文件。 |
+ | 初始参数 | [ADOPTED] CLI/本地请求 15s 总 deadline，密钥 HTTP 5s、平台 HTTP 10s、审计写入 500ms；关闭敏感连接自动重试和重定向；所有预算受上层 deadline 约束。刷新间隔/提前量必须来自已核实 profile。 |
+ 
+@@ -241,7 +243,7 @@
+ | --- | --- |
+ | TikTok Q-7、A-2：市场/App 类型、Seller 协议、来源校验、授权店铺响应、Token/refresh 轮换及共享 refresh resource、失效证据 | 平台接入设计者在对应 Story 编写前形成可引用 provider profile、官方依据和联调计划；未落实不得把该 Story 视为可实施，也不得启用生产适配器。 |
+ | CLI 命令树、完整 DTO schema、stdin/隐藏交互和取消实现 | CLI 设计者在对应 Story 前细化 AD-13；不得改变现有 JSON 三组/错误/版本规则。 |
+-| OpenBao Transit 密文绑定实现、AppRole SecretID 发放/轮换/回收与 Token 续期/重新认证、密钥轮换/备份恢复步骤 | 安全存储及部署 Story 前细化 AD-6/AD-14，必须验证旧密文可解、跨目标交换失败及恢复材料，不能留给各用例自行选择。 |
++| OpenBao Transit 当前值/待处置结果包绑定编码与隔离验证、AppRole SecretID 发放/轮换/回收与 Token 续期/重新认证、密钥轮换/备份恢复步骤 | 安全存储及部署 Story 前细化 AD-6/AD-14，必须验证旧密文可解、跨目标/operation/App/用途交换失败及恢复材料；结果包设计与隔离验证由 1.2/1.6 交付，不能留给各用例自行选择。 |
+ | systemd 精确指令、TLS 终止组件/证书、网络入口、告警与未到达服务的连接拒绝采集通道、备份存储和保留任务 | 部署 Story 前决定并在目标 Linux 环境验证；系统采集只能记录非敏感连接/操作标识，不能收集 argv、请求体或秘密；只公开回调、不记录 URL query、不开放管理 TCP、不缩短一年审计保留。 |
+ | 容量测量与恢复演练 | 运行和恢复 Story 前制定 Operational Targets 的测量范围、故障条件及演练步骤；基础设施能力及平台轮换约束不满足时显式修订目标/方案，不暗中启用缓存、HA 或复用旧 Token。 |
+ | Vaultwarden Q-11、钉钉、终端分发、对象级权限、多租户、多节点及其他平台 | 后续启动时单独设计；首期仅预留 provider/SecretProtector 端口，不实现推送、代理调用或远程取密。 |
+--- _bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md before
++++ _bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md current
+@@ -14,6 +14,8 @@
+ 来源为 [定稿产品简报](../../briefs/brief-third-party-api-key-hub-2026-09-29/brief.md)及其决策记录。`docs/project-brief.md` 是早期输入，其中首期平台等旧待确认项以定稿简报为准。已确认技术约束见 [交接补充](addendum.md)。
+ 
+ 本轮用户补充作为简报之后的需求决定：首期取密入口进一步限定为服务主机上的 CLI；新增 Vaultwarden 自动同步作为后续范围。决定依据保存在同目录 `.memlog.md`，简报保留原定稿版本。
++
++本稿已随用户要求处理 PM-01 至 PM-06 的指令同步更新。现行技术决定与状态转换以 [架构契约](../../architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md) 及其强制 companions 为准，当前实施缺口按 [实施门槛](../../../specs/spec-third-party-api-key-hub/implementation-gates.md) 路由；下文早期交接不重开已接受的选型。
+ 
+ ## 产品目标
+ 
+@@ -163,7 +165,7 @@
+ - 除所需归属外，凭据类型与凭据值必填；缺少任一必填内容时拒绝导入。有效期和刷新凭据为可选字段，并按平台支持情况校验；未填写有效期不推定为永不过期，沿用“有效期未知”与运维确认规则；未提供刷新凭据不推定该凭据可刷新。
+ - 同一目标已有同类型凭据时，运维人员必须明确指定“替换”才允许覆盖；未明确指定时导入失败，已有凭据及其状态保持不变，不自动覆盖或新增正常查询的候选版本。
+ - 明确指定替换后，成功导入的新凭据成为该目标该类型的当前凭据；替换未成功时不误报完成，也不将未完成保存的新凭据视为当前凭据。取密仍须满足完整归属链、可用性和调用资格规则。
+-- 手工导入凭据的有效期未知时，只要运维人员已确认可用，即可正常取密；状态必须标记为“有效期未知”。
++- 手工导入凭据的有效期未知时，只要运维人员已确认当前值可用，即可正常取密；状态必须标记为“有效期未知”。确认与验证证据绑定所适用的秘密值版本；明确替换后新值不继承旧确认或验证结果，同次导入可显式确认新值。
+ - 平台验证为可选操作；运维确认、验证未完成和明确失效按 FR-7 区分，取密继续遵守 FR-8、FR-11 的有效性、本地停用及完整映射限制。
+ - 导入成功和失败的处理均遵守 NFR-1。
+ - 手工导入及其结果查询通过 CLI 提供，同时支持隐藏凭据值的交互输入和从标准输入读取的非交互脚本模式；两种模式均须遵守 NFR-1，不回显输入的凭据值，导入结果不回传凭据值，不将其写入日志、审计、告警或错误响应。交互提示使用标准错误，标准输出保留该次操作的 JSON 结果。
+@@ -176,13 +178,13 @@
+ **验收条件**：
+ 
+ - 可以区分平台 App 级和安装授权级凭据，查询其状态与有效期信息。
+-- 每份凭据的验证结果可归属到对应凭据，不因关联对象相同而混用其他凭据的验证结果。
++- 每份凭据的验证结果归属到对应目标、类型及秘密值版本；换值不继承旧值验证证据，迟到的旧版本结果不能覆盖新值。暂时故障保留同版本已有确定证据并另记本次未完成尝试。
+ - 运维确认可用与平台验证成功是不同的结果；未执行平台验证不能伪装成成功，也不构成拒绝已获运维确认的手工导入凭据的唯一原因。
+ - 凭据保存和验证过程遵守 NFR-1；验证失败的诊断不返回真实凭据。
+ - 验证结果区分明确失效与验证未完成：网络超时或平台暂时故障记录为“验证未完成”，既不伪装为验证成功，也不覆盖原可用状态；明确确认失效时停用并拒绝取密。验证未完成不使原不可用、过期或已本地撤销的凭据恢复可用。
+ - 已过期或已撤销的凭据不能作为可用凭据从查询／导出结果中返回；刷新失败本身不等同于旧凭据失效，仍须检查旧凭据是否有效。
+ - 手工导入的未知有效期按 FR-6 处理；明确失效后的停用适用于所有凭据。
+-- 业务调用明确发现失效时，通过服务主机 CLI 标记目标凭据失效，成功后拒绝取密；标记结果可查询并纳入 FR-12 审计。首期不新增远程失效上报接口，不由本中心代理业务 API。
++- 业务调用明确发现失效时，由获 manage 资格的调用者通过服务主机 CLI 以目标、类型和使用时的 expected_generation 标记该版本失效；匹配当前版本才停用，旧值报告不能停用后来刷新的新值，冲突按稳定输入错误拒绝且状态不变。运维主动停用当前目标是独立操作。标记结果可查询并纳入 FR-12 审计，版本引用不含秘密。首期不新增远程失效上报接口，不由本中心代理业务 API。
+ - 验证时间与状态编码由 CLI 契约设计细化；平台验证接口、支持范围以及暂时故障与明确失效证据的分类由接入设计核实，见 Q-7。
+ 
+ #### FR-8 凭据刷新与撤销
+@@ -195,7 +197,7 @@
+ 
+ - 对支持刷新的凭据提供自动刷新；本地撤销不依赖第三方平台是否支持撤销接口，操作后可查询目标凭据的停用状态。
+ - 本地撤销成功后立即拒绝返回目标凭据，不调用第三方平台撤销接口，不宣称平台授权已解除。
+-- 已本地停用的凭据不能因后台刷新、验证成功或映射恢复而自动恢复取密；运维重新授权或明确替换导入后，须显式确认恢复取密，并重新满足可用性、完整映射和调用资格条件。具体确认入口交给 CLI 设计，调度与并发处理必须保留本地停用决定。
++- 已本地停用的凭据不能因后台刷新、验证成功或映射恢复而自动恢复取密；运维重新授权或明确替换导入后，须显式确认恢复取密，并重新满足可用性、完整映射和调用资格条件。恢复资格须持久化证明停用后有合格替换/重新授权，不能仅比较 generation 或从可缺失的审计推断；刷新可保留已有资格但不能创建资格，再次停用清空资格。确认/恢复明确指向当前版本，具体入口交给 CLI 设计，调度与并发处理必须保留本地停用决定。
+ - 刷新成功后，可查询更新后的可用凭据与状态；旧凭据的轮换和有效性依据平台实际规则处理，不能未经核实推定仍可使用。
+ - 刷新失败时，如果旧凭据仍有效且未被撤销，正常查询允许继续返回该旧凭据；刷新失败不能延长其有效期。
+ - 旧凭据已过期或已撤销时，查询／导出不返回其明文内容，并以 FR-10 的安全错误契约表达不可用结果。
+@@ -241,9 +243,9 @@
+ - 成功和失败结果均以 JSON 输出：标准输出只包含该次操作的 JSON 结果，标准错误只用于诊断，不把诊断文字混入标准输出。
+ - 成功使用退出码 `0`，首期所有失败统一为 `1`；失败时标准输出仍为机器可解析的 JSON 错误对象，具体原因由 `error` 判断。
+ - 失败标准输出统一使用简化 JSON 错误对象：`{"error":"...","message":"..."}`；`error` 用于机器识别错误类别，`message` 提供不含敏感信息的安全说明。
+-- 成功结果同时包含平台、App、外部店铺、品牌、内部店铺标识，以及各具体凭据的类型、状态和有效期；有效期未知明确标识，不推定永不过期。
++- 成功结果同时包含平台、App、外部店铺、品牌、内部店铺标识，以及各具体凭据的类型、非敏感 generation、状态和有效期；type 与 generation 对应本次值的同一快照，供版本失效报告引用。有效期未知明确标识，不推定永不过期。
+ - `error` 使用稳定类别，至少区分输入错误、对象不存在、须指定 App／店铺、归属不完整／不匹配、无权限、必需凭据缺失、过期、停用及内部故障。编码与多原因时的优先级由 CLI 契约设计确定。
+-- 同一主版本保持已有字段、类型和含义稳定，只增加兼容的可选字段；破坏性调整升级主版本。
++- 同一主版本保持已有字段、类型和含义稳定，只在声明的非敏感元数据位置增加兼容的可选字段；旧 CLI 忽略允许位置的未知元数据并按已验证字段重建输出。未知秘密类型/字段、重复项及错误对象夹带值仍拒绝；请求严格校验不放宽。破坏性调整升级主版本。
+ - 具体字段名与错误编码由 CLI 设计者在对应 Story 编写前落实；各平台字段的业务调用、刷新和管理用途由接入设计者核实。
+ 
+ #### FR-11 查询范围与访问控制
+@@ -327,9 +329,10 @@
+ 
+ - **输入与归属**：隐藏交互和标准输入均可导入，输入值不回显，结果／诊断／审计／告警无凭据值，提示不污染 JSON。App 级绑定 App，店铺级绑定 App 与外部店铺；缺少归属、类型或值时导入失败且不保存无归属凭据。省略有效期或刷新凭据不妨碍其余条件满足的导入，不误报有效期或刷新能力；缺少品牌／内部店铺映射仍禁止取密。
+ - **覆盖**：未指定替换时失败且原凭据与状态不变；明确替换成功后查询使用新当前凭据，替换失败不误报成功。
+-- **可用与验证**：未知有效期经运维确认后可取密并标记未知；运维确认与平台验证结果可区分。验证超时或平台暂时故障标记未完成，保留原可用状态，不恢复原已过期或停用凭据。明确发现失效后停用，包括通过本地 CLI 标记业务发现的失效。
++- **可用与验证**：确认A后替换B未确认，B不得继承A的确认或验证；未知有效期经当前版本运维确认后可取密并标记未知；运维确认与平台验证结果可区分。验证超时或平台暂时故障标记未完成，保留原可用状态，不恢复原已过期或停用凭据。明确发现失效后停用，包括通过本地 CLI 标记业务发现的失效。
+ - **刷新**：支持刷新的凭据自动刷新；刷新失败但旧凭据仍有效且未停用时可返回，已过期或停用后拒绝。
+-- **停用与恢复**：本地撤销立即拒绝取密，不调用平台撤销接口、不宣称平台授权解除。后台刷新、验证成功及映射恢复不解除停用；重新授权或明确替换导入后，未经显式确认仍不能取密，确认后重查有效性、完整映射与权限。
++- **版本失效报告**：查询旧值→刷新新值→报告旧generation失效，新值不得停用；匹配当前generation的报告可停用，运维主动停用独立生效。
++- **停用与恢复**：仅刷新后显式恢复仍拒绝，明确替换/重新授权产生事务内资格；替换后刷新保留资格，再次停用清空资格，重启后规则一致。本地撤销立即拒绝取密，不调用平台撤销接口、不宣称平台授权解除。后台刷新、验证成功及映射恢复不解除停用；重新授权或明确替换导入后，未经显式确认仍不能取密，确认后重查有效性、完整映射与权限。
+ 
+ 对应 FR-6、FR-7、FR-8；输入格式由 CLI 设计确定，平台验证按核实能力验收。
+ 
+@@ -337,7 +340,7 @@
+ 
+ - **归属与选择**：按品牌、内部店铺、外部店铺查询的归属正确；任一映射缺失时错误 JSON 无明文。唯一 App／店铺自动使用，多 App／店铺须显式指定；未指定或指定范围外对象时不返回凭据。
+ - **组合与完整性**：同一次查询完整返回对应 App 调用凭据和店铺 Token，不混入其他 App，不返回 refresh token 等仅用于刷新或管理的凭据。任一必需 App 凭据或店铺 Token 缺失、过期或停用时整体失败，错误响应不含仍可用部分的凭据值，诊断与审计也无秘密。
+-- **契约**：标准 JSON 解析与值比较验证明文完整性；成功为三组结构，含全部归属标识与每份凭据的类型／状态／有效期，未知有效期明确标识。成功退出码 0，所有错误场景为 error/message JSON 和退出码 1，错误覆盖确认类别，标准错误不污染标准输出。同一主版本不破坏字段、类型与含义。
++- **契约**：标准 JSON 解析与值比较验证明文完整性；成功为三组结构，含全部归属标识与每份凭据的类型／状态／有效期，未知有效期明确标识。成功退出码 0，所有错误场景为 error/message JSON 和退出码 1，错误覆盖确认类别，标准错误不污染标准输出。同一主版本不破坏字段、类型与含义；旧CLI接收允许位置新增可选非敏感字段成功，不透传未知字段；未知秘密/重复项/错误响应夹带值仍失败。
+ 
+ 对应 FR-9、FR-10；再次授权的当前凭据检查见 SM-3，停用恢复见 SM-4。
+ 
+@@ -368,14 +371,14 @@
+ | --- | --- | --- |
+ | Q-1 | 工作方式已改为推荐清单、批量确认；不再逐个追问技术细节。原始来源核对保存在 reconcile-brief.md。 | PRD 维护者在收尾时核对来源与决策记录。 |
+ | Q-2 | 多 App／多店铺时显式选择，唯一项自动使用；不返回跨 App／店铺明文列表。 | 已确认，见 FR-9。 |
+-| Q-3 | 组合查询、元数据、三组 JSON、错误类别、0／1 退出码与主版本兼容原则已确认。具体字段与错误编码待设计。 | CLI 设计者在 CLI Story 编写前落实契约；接入设计者核实平台字段用途。 |
+-| Q-4 | 服务主机本地 CLI、受控 Linux 账户边界已确认；账户、运行与存储权限、账户资格撤销配置待设计。 | 架构设计者在相关 Story 编写前落实，按 SM-6 验收。 |
++| Q-3 | 三组JSON、稳定错误码/优先级、0/1与元数据扩展边界已由AD-8/13采用；完整逐操作schema/样例仍待完成。 | CLI设计者按SQ-2/1.1细化，接入设计者按SQ-1核实类型用途；不重开既有编码决定。 |
++| Q-4 | AD-3/14已采用Unix内核UID、read/manage、策略复核与存储权限；精确配置和Linux实证待完成。 | 1.4/1.7按SQ-4形成配置与证据，按SM-6验收。 |
+ | Q-5 | 导入必填／可选字段、明确归属、显式替换、双输入模式、运维确认及可选验证结果处理均已确认。 | CLI 设计者在导入 Story 编写前落实输入格式与命令；接入设计者核实平台校验和刷新支持。 |
+-| Q-6 | 自动刷新与失效规则、本地停用、显式恢复、再次授权更新、失效 CLI 标记已确认。调度、重试、并发、轮换、迟到回调及查询是否触发即时刷新待设计。 | 架构与平台接入设计者在生命周期 Story 编写前落实；历史沿用 FR-12。 |
++| Q-6 | AD-5/7/9/10已采用App协调、CAS/epoch、持久化调度、不即时刷新、结果恢复及版本证据；具体平台轮换/安全重试/调度参数待SQ-1核实。 | 平台设计者1.5/2.1核实profile；1.18/2.4/2.6/2.7按状态与结果companions细化验收；历史沿用FR-12。 |
+ | Q-7 | TikTok Shop 官方资料提供线索，但目标市场／App 类型、实际协议、回调可达性与校验、Token 有效期／轮换、验证及失效分类尚待核实。 | 平台接入设计者在 TikTok 接入 Story 编写前核实并记录依据；不能以现有线索代替联调。 |
+-| Q-8 | 审计范围、最小字段、一年保留与不阻断操作的失败告警已确认；存储、字段编码及告警通道待设计。 | 架构设计者在审计 Story 编写前落实，按 SM-6 验收。 |
+-| Q-9 | 数据库、生产密钥后端、Linux 目标环境、必要运行质量目标及恢复方案待设计；PRD 不虚构数值。 | 架构设计者在对应 Story 编写前落实，按 SM-7、SM-8 与设计确定的指标验收。 |
+-| Q-10 | CLI 管理、App 登记字段与唯一性、稳定映射标识、冲突拒绝、变更立即生效与完整链限制均已确认。 | CLI 设计者在管理 Story 编写前落实参数；架构设计者落实关系约束、并发与缓存失效。 |
++| Q-8 | AD-12已采用独立audit.sqlite、字段白名单、分页检索与journald降级告警；完整DTO及精确采集/保留配置仍待落实。 | 按SQ-2/1.1与SQ-4/1.4/1.7/3.1/3.3落实，按SM-6实测。 |
++| Q-9 | 数据库/OpenBao、Ubuntu/systemd 与运行目标已由 final 架构采用；完整编码、部署和恢复实证仍待完成。 | 以实施门槛 SQ-3 至 SQ-5 路由；按 SM-7、SM-8 与已采用指标实测，不重开选型。 |
++| Q-10 | CLI管理、App/映射唯一性及立即生效已由AD-2/4/5采用；无状态/映射缓存。 | CLI设计者按SQ-2细化参数，实施按已采用事务/版本规则验收，不重开并发或缓存方案。 |
+ | Q-11 | Vaultwarden 自动推送方向及平台查看权限已确认；同步范围、事件、条目映射、首次同步、时限、重试、顺序、冲突、撤销与删除传播待设计。 | 后续 Vaultwarden 集成负责人在集成启动前细化，不阻塞首期。 |
+ 
+ PRD 定稿表示产品需求基线可进入架构设计，不表示上述技术方案已完成，也不表示 TikTok Shop 已联调验证。对应技术事项未落实前，不将其 Story 视为可实施。
+--- _bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md before
++++ _bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md current
+@@ -9,12 +9,14 @@
+ 
+ 本补充承接定稿产品简报和后续用户确认的技术选择，供架构与平台接入设计引用；未确认的技术细节保持待设计，不表示技术设计已经完成。
+ 
++现行技术方案已由 [final 架构](../../architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md) 采用；本文件的原技术交接事项保留其历史来源，当前未完成项以 [实施门槛](../../../specs/spec-third-party-api-key-hub/implementation-gates.md) 为准。2026-10-08 修订补充版本证据/业务失效上报、响应扩展与待处置结果保护，不改变首期范围。
++
+ ## 已确认技术约束
+ 
+ - 使用 Go，交付 Linux 常驻服务与 CLI，共享领域模型、平台适配器、授权状态和凭据管理核心。
+ - 服务承接第三方授权回调与自动刷新，平台适配器隔离授权和 API 差异；本中心不建设首期 Web 管理界面。
+ - 提供可复现 Linux 构建与打包命令，支持 systemd，不绑定单一安装包格式。
+-- 本地开发支持环境变量注入；生产支持专用密钥管理服务，具体后端由架构决定。
++- 本地开发支持环境变量注入；生产采用架构确认的 OpenBao Transit，不以 Vaultwarden 替代首期密钥后端。
+ - CLI 采用 JSON 输出，首期仅在服务 Linux 主机通过受控账户管理与取密；独立终端分发属于后续范围。
+ 
+ 查询、导入、映射、停用恢复及审计的产品规则以 [PRD](prd.md) FR-1 至 FR-12 为准，技术设计不得放宽该边界。具体 JSON、命令和状态编码由 CLI 设计确定；账户／存储权限、缓存、并发、刷新调度、审计存储与告警由架构和接入设计落实。
+@@ -27,7 +29,7 @@
+ 
+ ## 技术交接入口
+ 
+-[PRD 决策状态与技术交接](prd.md#决策状态与技术交接)维护 Q-1 至 Q-11 的当前状态；文末责任表规定复核条件。本补充未选定数据库、密钥后端、Linux 发行版、传输协议、CLI 命令语法或具体平台接口。
++[PRD 决策状态与技术交接](prd.md#决策状态与技术交接)维护 Q-1 至 Q-11 的当前状态；文末责任表规定复核条件。数据库、密钥后端、Linux 与传输协议已由架构采用；完整 CLI schema、平台 profile、当前值/待处置包编码及实际部署/恢复仍需设计或验证，按实施门槛路由。
+ 
+ ## 后续自建 Vaultwarden 集成
+ 
+@@ -63,7 +65,7 @@
+ 
+ | 责任角色 | 交接事项 | 复核时点 |
+ | --- | --- | --- |
+-| 架构设计者 | 数据库、生产密钥后端、Linux 目标环境、账户与运行／存储权限、审计存储与告警、调度／重试／并发／缓存、必要运行质量目标与恢复方案。 | 对应 Story 编写前记录设计决定与验收指标。 |
++| 架构与安全存储设计者 | 已采用架构及三份状态/响应/待处置结果 companions；完整保护编码由1.2交付、隔离验证由1.6交付，身份/部署/恢复按SQ细化。 | 对应 Story 定稿前引用契约和实际证据，技术选择不重新提问。 |
+ | CLI 设计者 | 字段名称、三组 JSON 编码、错误编码与多原因优先级、输入格式、命令参数、隐藏输入与显式恢复入口、兼容契约。 | CLI 对应 Story 编写前确定可引用契约。 |
+ | 平台接入设计者 | TikTok 目标市场／App 类型、授权与回调、Token 有效期与轮换、调用字段、验证支持与失效证据分类。 | TikTok 接入 Story 编写前核实官方版本与适用性，记录联调计划；未核实不视为可实施。 |
+ | 后续 Vaultwarden 集成负责人 | 凭据与事件范围、条目映射、首次同步、时限、重试、顺序、冲突、撤销和删除传播。 | 后续集成启动前，首期不依赖这些决定。 |
+--- README.md before
++++ README.md current
+@@ -8,6 +8,18 @@
+ - 已安装 BMAD Method 6.12.0（BMM 模块）
+ - 已配置 Codex 技能到 `.agents/skills`
+ - BMAD 产物默认输出到 `_bmad-output`
++- 已形成首期 PRD、架构、SPEC 和 34 条规划任务；业务实现和实际平台/Linux/KMS 验收尚未开始，整体开发就绪 **FAIL**。
++
++## 现行文档入口
++
++从 [首期 SPEC](_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md) 开始，必须共同读取其 companions：
++
++- [PRD](_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md) 和 [技术补充](_bmad-output/planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md)：产品范围和验收。
++- [架构契约](_bmad-output/planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md) 及其状态、兼容、待处置结果 companions：已采用的实施规则。
++- [实施门槛](_bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md)：尚缺的契约与实际证据。
++- [Epic/Story 规划](_bmad-output/planning-artifacts/epics.md) 和 [CE 校验](_bmad-output/planning-artifacts/CE-VALIDATION.md)：规划覆盖与开发就绪判断。
++
++文档 `final` 表示基线定稿，不表示功能实现、联调或运行目标已通过；`docs/project-brief.md` 是历史输入。六项审查修订的依据与复核见 [修订收尾记录](_bmad-output/party-mode/reviews/2026-10-08-document-repair.md)。
+ 
+ ## 开始使用
+ 
+--- docs/project-brief.md before
++++ docs/project-brief.md current
+@@ -1,4 +1,6 @@
+ # 项目简报
++
++> 历史输入：本页保留项目初始化时的目标与待确认事项；当前已确认的 TikTok Shop、OpenBao 和本地主机 CLI 边界以 [README 现行入口](../README.md#现行文档入口) 及 [SPEC](../_bmad-output/specs/spec-third-party-api-key-hub/SPEC.md) 为准，不据本页重新询问选型。
+ 
+ ## 目标
+ 
+--- _bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md before
++++ _bmad-output/planning-artifacts/briefs/brief-third-party-api-key-hub-2026-09-29/brief.md current
+@@ -2,10 +2,12 @@
+ title: "第三方平台 API 凭据管理中心"
+ status: final
+ created: 2026-09-29
+-updated: 2026-09-30
++updated: 2026-10-08
+ ---
+ 
+ # 产品简报：第三方平台 API 凭据管理中心
++
++> 本页保留原产品简报基线及当时交接事项；后续已接受的本地主机 CLI、OpenBao 与状态/兼容规则以 [PRD](../../prds/prd-third-party-api-key-hub-2026-10-08/prd.md) 和 [SPEC](../../../specs/spec-third-party-api-key-hub/SPEC.md) 为准。原“待确认”不重开现行决定。
+ 
+ ## 执行摘要
+ 
+--- _bmad-output/planning-artifacts/epics.md before
++++ _bmad-output/planning-artifacts/epics.md current
+@@ -69,7 +69,7 @@
+ - 使用共同 `contract/v1` DTO、错误码和操作定义；未知操作、重复/未知 JSON 字段和超限请求拒绝；所有操作带服务生成的 operation ID。
+ - 领域关系、凭据状态、映射和授权会话由 application 用例统一变更；SQLite 事务、读写一致性门、row revision CAS、秘密 generation 和 authorization epoch 遵守架构约定。
+ - 唯一性由数据库索引、外键和用例校验共同保证：平台 App、安装授权、外部店铺身份、品牌/内部店铺映射以及同目标同类型当前凭据均不得产生重复当前记录。
+-- 凭据值只以密文和元数据存储；生产使用 OpenBao Transit，SQLite 不保存明文，不做跨请求秘密缓存；密文绑定不得混用目标、用途、版本或权限。
++- 凭据值只以密文和元数据存储；生产使用 OpenBao Transit，SQLite 不保存明文，不做跨请求秘密缓存；密文绑定不得混用目标、用途、版本或权限；当前值与待处置平台结果的两用途规则按架构pending-results.md。
+ - 可用性由有效期、平台验证、运维确认、本地停用、凭据值版本等正交字段计算；停用、验证、恢复和映射变化不能隐式推进或恢复错误状态。
+ - 刷新、回调和外部平台调用不得持有领域写门；网络完成后必须以版本快照和 CAS 检查结果，外部副作用不确定时进入恢复路径，不盲目重放。
+ - 平台适配器只返回规范化结果和类型化失败；TikTok Seller 市场/App 类型、授权协议、店铺身份、Token 期限/轮换、验证能力和失败分类必须形成 provider profile 与官方依据后才能实施对应 Story。
+@@ -88,8 +88,8 @@
+ - AD-3：每请求及输出明文前复核原子替换的 root 所有策略；管理变更提交前复核 manage。策略损坏、账户映射改变或身份不可读时拒绝。运行目录 `hubd:hub-clients 0750`、Socket `0660`；客户端无目录写权限，服务无策略写权限。
+ - AD-4：App 中心 ID 全局唯一，`(platform, provider_app_id)`、`(app_id, external_shop_id)`、`(platform, provider_shop_id)` 分别唯一；application 归并同平台跨 App 店铺，平台 shop ID 和 shop_cipher 不能替代中心外部店铺 ID。
+ - AD-5：查询持读门直至整份结果及权限复核完成；全部领域变更在写门内同事务提交。变更提交后发起的查询使用新状态；已线性化的响应可能稍后收到。无明文、映射或可用性缓存，平台网络调用不持一致性门；CAS 冲突返回安全 `input_invalid`。
+-- AD-6：密文绑定中心目标、类型和 generation，解密后验证；KMS 或事务失败保留原记录，依赖故障不当作平台失效。TLS 校验 CA/主机身份，AppRole 最小授权，生产 SecretID 经 systemd credential 文件提供，不使用 unit 字面量、argv 或生产环境变量。
+-- AD-7：恢复要求重新授权或明确替换产生晚于停用时版本的凭据，并复核有效性、映射和 manage 资格；自动刷新不构成恢复依据。已知到期使用绝对时间，未知为 `expiry_known=false` 与 `expires_at=null`，明确失效执行本地停用。
++- AD-6：current-credential密文绑定中心目标、类型和generation；pending-provider-result绑定用途/operation/App/epoch/profile/依赖快照，两用途不互换，1.2设计/1.6隔离验证先于2.4/2.5/2.7；解密后验证；KMS 或事务失败保留原记录，依赖故障不当作平台失效。TLS 校验 CA/主机身份，AppRole 最小授权，生产 SecretID 经 systemd credential 文件提供，不使用 unit 字面量、argv 或生产环境变量。
++- AD-7：状态转换按架构credential-state.md，恢复须有停用后合格替换/重授权的recovery_basis事务证据及当前expected_generation、有效性、映射和manage；确认/验证绑定值版本，换值不继承旧证据；自动刷新不能创建恢复资格，再次停用清空。已知到期使用绝对时间，未知为 `expiry_known=false` 与 `expires_at=null`，明确失效执行本地停用。
+ - AD-8：App/shop 必需业务组合全部解密、校验后服务才序列化；CLI 完整读取、验证后一次写 stdout，不流式输出秘密，不提供 App 独立明文查询；refresh/management 专用值不返回，业务必需 App Secret 不能被误排除。
+ - AD-9：取密不触发即时刷新，后台使用持久化 next_attempt_at；共享远端 grant/refresh secret 的安装引用同一 refresh_resource_id。授权兑换、重新授权和刷新使用 App 级排他协调；新 generation 与依赖当前值同事务更新。外部副作用可能已发生而结果未安全提交时进入 indeterminate；启动发现未终结操作阻止该 App 自动轮换。已安全保存的加密结果仅重试本地条件提交，不再次调用平台；仅对明确安全失败有界退避，受控恢复也经 App 协调。
+ - AD-10：持久化会话保存至少 256 bit 随机 state 的哈希、App、发起账户、epoch 和期限，不保存明文授权码；兑换及提交核对 epoch/版本，重复已提交回调仅返回安全完成状态。独立回调 mux 只注册回调和无秘密健康入口；多授权店铺不自动建立品牌映射，HTTPS 访问日志不记录 query、授权码或请求/响应体。
+@@ -209,7 +209,7 @@
+ 
+ **Given** 用虚构 App/店铺类型描述的完整业务凭据组合,
+ **When** 定义取密成功输出与三种归属查询的选择规则,
+-**Then** 输出为 `identity`、`credentials`、`status` 三组，identity 具有平台、App、外部店铺、品牌、内部店铺稳定标识，credentials 的 app/shop type/value 与 status 的同类型状态及期限一一对应,
++**Then** 输出为 `identity`、`credentials`、`status` 三组，identity 具有平台、App、外部店铺、品牌、内部店铺稳定标识，credentials 的 app/shop type/value 与 status 的同类型正整数generation、状态及期限一一对应,
+ **And** 未知期限为 `expiry_known=false` 和 `expires_at=null`；多 App/店铺要求选择、唯一项自动解析；失败整体无任何部分秘密；所需业务 App Secret 可以返回，refresh/management 专用值不返回；实际类型/必需组合引用 SQ-1 profile，虚构类型仅证明编码。
+ 
+ **Given** 同一请求可能同时无权限、输入错误或存在凭据异常,
+@@ -236,8 +236,23 @@
+ **When** 逐操作校验文档/样例与 PRD、AD-13 的一致性,
+ **Then** 所有首期 CLI 操作均有输入、非敏感结果/安全错误和合法/非法样例，机器可校验部分通过且失败样例按预期被拒绝，未确定的公共字段/输入规则不存在占位决定,
+ **And** 报告区分已完成的静态契约校验、SQ-1 尚待核实的平台类型规则，以及未来 Linux TTY/身份/部署和真实平台的运行验收；完成本 Story 不能宣称后者或整个 SQ-1 至 SQ-5 已通过。
+-
+-### Story 1.2: 明确凭据密文绑定与保存失败的安全契约
++**Given** 业务使用的版本可能早于服务当前值,
++**When** 定义mark-invalid、confirm、restore和主动disable输入,
++**Then** 前三者必须携带目标/type/expected_generation，版本冲突为安全input_invalid且不变更新值；disable明确表示主动停用当前目标,
++**And** 查询每type状态返回同快照generation，秘密值不作比对材料；命令/样例引用credential-state.md。
++
++**Given** 旧CLI与同主版本新服务交换结果,
++**When** 在response-compatibility.md指定状态元数据位置增加虚构可选字段,
++**Then** 旧CLI成功验证已知字段并重建输出、不透传未知字段；未知秘密/重复项/错误响应夹带值仍失败,
++**And** 请求未知字段仍拒绝，既有类型/含义不变；逐操作非敏感扩展位置必须在schema中明确。
++
++**Given** 本地管理请求提交后CLI超时或取消且审计降级,
++**When** 定义调用者确认结果的流程,
++**Then** 通过目标的非敏感当前generation/row_revision和管理结果查询复核当前状态，不依赖审计作为唯一提交证据、不盲目重放变更,
++**And** 无法证明本次提交结论时明确报告结果不确定；写stdout开始后的I/O故障不追加第二JSON、不宣称服务回滚。
++
++
++### Story 1.2: 明确当前凭据与待处置结果的密文保护契约
+ 
+ As a 负责凭据安全存储的维护人员,
+ I want 获得统一的密文编码、归属绑定、解密校验和失败处理契约,
+@@ -249,14 +264,14 @@
+ 
+ **Dependencies:** 已采用的 OpenBao 2.7.1、AD-6 与版本约定；不依赖 Story 1.1 的执行结果、未来业务实现、TikTok 授权或部署 Story。设计和验证步骤引用 OpenBao 官方依据。需要实际隔离后端才能取得的验证证据明确保持待执行，不将未来环境存在作为本设计 Story 的完成条件。
+ 
+-**Scope / Deliverables:** 在 `_bmad-output/planning-artifacts/contracts/secret-protection/` 形成 `SECRET-PROTECTION-CONTRACT.md`、带明确版本的密文包/绑定编码说明、`Seal/Open` 端口输入/结果/类型化失败约定、虚构合法/非法样例和验证矩阵。文档固定目标、类型、generation 绑定与数据库提交顺序，给出可在隔离 OpenBao 上执行的交换/轮换/故障验证步骤及预期结果。本 Story 不实现业务用例，不配置生产 OpenBao、不发放或变更真实凭据；AppRole 身份生命周期及完整部署/备份恢复另行细化。
++**Scope / Deliverables:** 在 `_bmad-output/planning-artifacts/contracts/secret-protection/` 形成 `SECRET-PROTECTION-CONTRACT.md`、`PENDING-RESULT-CONTRACT.md`、带明确版本的密文包/绑定编码说明、`Seal/Open` 端口输入/结果/类型化失败约定、虚构合法/非法样例和验证矩阵。文档固定目标、类型、generation 绑定与数据库提交顺序，给出可在隔离 OpenBao 上执行的交换/轮换/故障验证步骤及预期结果。本 Story 不实现业务用例，不配置生产 OpenBao、不发放或变更真实凭据；AppRole 身份生命周期及完整部署/备份恢复另行细化。
+ 
+ **Acceptance Criteria:**
+ 
+ **Given** AD-6 要求密文绑定中心目标、凭据类型和秘密值版本,
+ **When** 定义密文包、绑定编码与 SecretProtector 端口,
+ **Then** 明确 App/安装目标的无歧义标识、type、generation、包格式版本、Transit 密钥引用/版本的来源与校验规则，以及待加密数据和待验证绑定的边界,
+-**And** 实现者可依完整字段/类型/编码示例构造并校验密文包；generation 初值为 1 且只随成功更新秘密值递增，row_revision 与 authorization_epoch 不加入密文绑定；元数据不能独自证明解密结果的归属。
++**And** 实现者可依完整字段/类型/编码示例构造并校验密文包；generation 初值为 1 且只随成功更新秘密值递增，current-credential绑定不加入row_revision/authorization_epoch；pending-provider-result认证绑定领取快照/适用epoch，仍复核当前CAS；元数据不能独自证明解密结果的归属。
+ 
+ **Given** 一份有效密文和另一个目标、类型或 generation 的期望绑定,
+ **When** 设计解密后绑定复核与交换验证用例,
+@@ -276,7 +291,7 @@
+ **Given** 平台授权或刷新可能已在远端生效而本地保护/提交失败,
+ **When** 在文档中区分本地导入失败与外部副作用不确定,
+ **Then** 明确前者遵守原记录不变，后者交由 AD-9 的 indeterminate/受控恢复流程，不能据本地事务失败宣称远端回滚或旧 Token 必然仍有效,
+-**And** 已安全保存的加密结果只允许重试本地条件提交，未安全保存的结果不能转明文落盘，不能通过 SecretProtector 失败重放未经证明安全的平台请求；本 Story 只定义交接规则，不实现平台恢复流程。
++**And** 已安全保存的加密结果只允许重试本地条件提交，未安全保存的结果不能转明文落盘，不能通过 SecretProtector 失败重放未经证明安全的平台请求；本 Story 固定 pending-results.md 所要求的结果包编码、用途/operation/App/epoch/profile/依赖绑定和状态交接，不实现平台恢复业务。
+ 
+ **Given** 已持久化引用旧 Transit 密钥版本的密文和独立隔离验证后端,
+ **When** 编写密钥轮换后旧密文解密及错误密钥恢复的验证步骤,
+@@ -287,6 +302,16 @@
+ **When** 对照 AD-6、AD-14 与 SQ-3 核对本设计 Story 的完成证据,
+ **Then** 设计可按虚构样例复核且没有待实现者自行选择的绑定/包格式/错误处理占位，官方依据有版本和适用性记录，所有验证步骤有条件与预期结果,
+ **And** 报告分别标识静态设计已完成与隔离 OpenBao 实测待执行；没有实际验证结果时不得标记交换拒绝、旧密文解密、完整 SQ-3 或生产保护已通过，AppRole 生命周期、部署和恢复演练继续保持未完成。
++**Given** 尚未提交领域当前值的虚构多店铺平台结果,
++**When** 编写PENDING-RESULT-CONTRACT.md的完整包/schema/编码,
++**Then** 绑定格式版本/purpose/operation_id/App/种类/session-epoch/profile/已知依赖快照，完整规范化秘密在包内；不提前猜中心目标或最终generation,
++**And** 与current-credential用途严格隔离，解密核对期望绑定而非仅信元数据；引用pending-results.md，不写授权码/原始body/真实秘密。
++
++**Given** 平台已返回结果但manage撤销、CAS/epoch/profile过时或进程崩溃,
++**When** 固定结果保护、原子保存和本地条件提交矩阵,
++**Then** 明确protected-result/indeterminate/terminal转换、App阻塞和重启保护，完整包与operation原子保存；仅全匹配时重新保护为正确当前值并同事务提交,
++**And** 条件不匹配仍保留待处置证据，失败不转明文落盘、不重放平台；给出暂存包保留/安全清理步骤和1.6隔离验证预期。
++
+ 
+ ### Story 1.3: 明确 OpenBao 服务身份的发放、续期与回收契约
+ 
+@@ -402,7 +427,7 @@
+ **Then** 明确已证实/未证实项与来源，只有已核实手工路径可成为相关实施 Story 的输入,
+ **And** 真实授权、轮换、验证和联调仍由 Epic 2 核实，不将本子集当作 SQ-1 全部通过。
+ 
+-### Story 1.6: 取得密文交换拒绝与服务身份生命周期的隔离验证证据
++### Story 1.6: 取得当前值/待处置结果交换拒绝与身份生命周期的隔离证据
+ 
+ As a 负责凭据安全验收的维护人员,
+ I want 在隔离 OpenBao 上验证密文和身份契约,
+@@ -416,7 +441,7 @@
+ 
+ **Gates / External Inputs:** 隔离 OpenBao 2.7.1、受控测试身份和 TLS 环境；取得 SQ-3 手工路径证据后才能编写存储实施 Story。
+ 
+-**Scope / Deliverables:** contracts/secret-protection/validation-report.md、可复跑隔离验证 harness 与去敏结果；不修改生产后端。
++**Scope / Deliverables:** contracts/secret-protection/validation-report.md、可复跑隔离验证 harness 与去敏结果；同时验证1.2的当前值与待处置结果用途绑定，以虚构多店铺结果测试，不依赖真实平台或未来业务；不修改生产后端。
+ 
+ **Acceptance Criteria:**
+ 
+@@ -439,6 +464,16 @@
+ **When** 整理结果与证据链接,
+ **Then** 每项有环境版本、步骤、预期/实际结果与失败原因，实际通过项才标通过,
+ **And** 缺环境或失败保持门槛未满足；不因验证 harness 存在而声称生产保护已验收。
++**Given** 1.2提供当前值与待处置包编码，隔离后端和虚构多店铺结果可用,
++**When** 运行用途/跨operation/App/epoch/profile/依赖快照交换及篡改矩阵,
++**Then** 正确绑定可精确解出虚构完整结果，所有用途互换或错误绑定拒绝且无部分秘密,
++**And** 报告将结果保护子项与当前密文子项分别列出；harness不要求真实平台、未来业务表或生产资源。
++
++**Given** 保护结果已保存、模拟保存失败或密钥轮换后重启,
++**When** 复跑独立harness的结果状态/旧包解密/本地条件提交检查,
++**Then** 完整保存才成为protected-result，未安全保存按indeterminate拒绝重放；旧包可按原绑定解密，条件改变安全拒绝,
++**And** 本子项通过证据是2.4/2.5/2.7定稿前明确Gate，不代替这些任务自己的业务崩溃/撤权恢复验收。
++
+ 
+ ### Story 1.7: 取得 Linux 身份、权限和入口拒绝采集的隔离证据
+ 
+@@ -690,6 +725,11 @@
+ **When** 尝试导入,
+ **Then** 按权限/输入/对象优先级安全拒绝，不披露未获权限对象,
+ **And** 正式产物仅实现当前 App 导入路径，不创建未来安装或回调实体。
++**Given** 当前虚构值A已确认或已验证且明确替换为B,
++**When** 原子保存B及其当前状态,
++**Then** 按credential-state.md清空A的confirmed_generation/validation证据，采用B本次期限；无新确认的手工B不能仅凭A证据可用,
++**And** 同次显式确认B绑定其新generation；若此前disabled则保存本次替换的recovery_basis_generation/operation但不解除停用，状态与密文同事务。
++
+ 
+ ### Story 1.14: 运维可安全导入店铺凭据并形成独立安装关联
+ 
+@@ -723,6 +763,11 @@
+ **When** 执行替换并复核,
+ **Then** 无明确替换拒绝；成功推进秘密/对象/App版本；失败整笔保留原安装/当前值,
+ **And** 本地停用保持，失败诊断/审计不回传秘密，KMS失败不当平台失效。
++**Given** 当前虚构值A已确认或已验证且明确替换为B,
++**When** 原子保存B及其当前状态,
++**Then** 按credential-state.md清空A的confirmed_generation/validation证据，采用B本次期限；无新确认的手工B不能仅凭A证据可用,
++**And** 同次显式确认B绑定其新generation；若此前disabled则保存本次替换的recovery_basis_generation/operation但不解除停用，状态与密文同事务。
++
+ 
+ ### Story 1.15: 运维可检查状态并确认未知有效期凭据可用
+ 
+@@ -744,7 +789,7 @@
+ 
+ **Given** App 或安装凭据有已知/未知有效期,
+ **When** 查询状态及执行明确运维确认,
+-**Then** 输出非敏感type/generation/状态/期限，未知为null和expiry_known=false；确认与平台验证分别记录,
++**Then** 输出非敏感type/generation/状态/期限；确认必须携expected_generation匹配，confirmed_generation绑定当前值，未知为null和expiry_known=false；确认与平台验证分别记录,
+ **And** 确认推进row_revision/App聚合修订但不推进generation；不伪称平台验证成功。
+ 
+ **Given** 已知 expires_at<=now、disabled 或未获可用确认的凭据,
+@@ -756,6 +801,11 @@
+ **When** 查询或提交确认,
+ **Then** 停止依赖期限的取密/调度并安全告警，CAS冲突不覆盖状态,
+ **And** 状态/审计错误无秘密；当前版本检查可用fixture完成，不依赖未来平台验证实现。
++**Given** 值A已确认后被替换为B，或运维确认意图指向旧版本,
++**When** 检查状态并提交expected_generation确认,
++**Then** B不继承A证据；过时确认拒绝不改当前状态，匹配版本确认仅建立该版本证据,
++**And** validation确定证据与last_validation_attempt分别表达，未知期限每次换值重新确认；平台获取来源不伪称另行验证成功。
++
+ 
+ ### Story 1.16: 业务脚本可按完整归属取得全部必需业务凭据
+ 
+@@ -782,7 +832,7 @@
+ 
+ **Given** profile要求的App业务凭据与shopToken均可用,
+ **When** 持读门读取/解密/复核完整结果,
+-**Then** identity/credentials/status符合v1并精确返回虚构完整值，包括业务必需AppSecret，排除refresh/management值,
++**Then** identity/credentials/status符合v1，每个type状态含同快照正整数generation；精确返回虚构完整值，包括业务必需AppSecret，排除refresh/management值,
+ **And** 全部解密/绑定/有效性/权限复核后服务序列化；CLI完整读取验证后一次写stdout，不流式输出。
+ 
+ **Given** 任一必需项缺失、disabled、过期、不可用、错绑定或KMS失败,
+@@ -795,10 +845,15 @@
+ **Then** 写事务完成后发起的新请求使用新关系；返回秘密前再读策略，所有校验在读门内完成,
+ **And** 已线性化响应可能稍后收到；不将网络接收时刻误作撤销保证，失败无部分秘密。
+ 
+-**Given** 服务返回截断/畸形/额外字段或超时,
++**Given** 服务返回截断/畸形、违反允许扩展位置的字段、未知秘密或超时,
+ **When** CLI验证结果与预算,
+-**Then** 安全拒绝且无部分秘密输出，stdout单JSON、stderr诊断、成功0/失败1,
++**Then** 在秘密输出前安全拒绝无效服务结果；允许位置的可选非敏感元数据兼容接受，CLI按已验证字段重建输出、不透传未知字段，stdout单JSON、stderr诊断、成功0/失败1,
+ **And** 同主版本兼容检查通过；已知状态fixture只测当前能力，不调用未来平台功能。
++**Given** 同主版本hubd在允许状态元数据位置新增虚构可选字段,
++**When** 旧CLI读取完整业务结果,
++**Then** 已知字段/类型/generation与凭据组合验证通过，按已验证字段重建单JSON输出、未知元数据不透传,
++**And** 非扩展位置新增字段、未知秘密type、重复字段/条目和错误对象夹带秘密均在业务秘密输出前失败。
++
+ 
+ ### Story 1.17: 运维可通过隐藏 TTY 输入导入凭据
+ 
+@@ -853,16 +908,16 @@
+ 
+ **Given** App或安装凭据当前值可查询,
+ **When** 停用或明确失效标记成功后再从三种归属查询,
+-**Then** 持写门原子记录disabled/disabled_generation和安全原因，后续取密整体失败,
++**Then** mark-invalid要求使用时expected_generation匹配，过时报告以input_invalid拒绝且不改变新值；主动disable独立停用当前值；持写门原子记录disabled/disabled_generation、安全原因并清空恢复资格，后续取密整体失败,
+ **And** 不调用平台撤销/代理业务API、不提供远程失效上报；generation不因状态操作递增。
+ 
+ **Given** 停用后只做运维确认、映射恢复或成功验证/刷新状态模拟,
+ **When** 尝试取密或未替换的恢复,
+-**Then** 仍停用，后台/映射成功不能解除；仅晚于停用版本的重新授权/明确替换才具恢复资格,
++**Then** 仍停用；恢复必须有停用后合格替换/重授权的recovery_basis_generation/operation事务证据，不能只比较generation；刷新不得创建资格、可保留已有资格，再次停用清空资格,
+ **And** 本任务通过已实现替换流程验收；平台行为用领域事件fixture验证约束，不声称真实刷新实现。
+ 
+ **Given** 显式替换产生新当前值且运维明确恢复,
+-**When** 重核manage、完整映射和当前有效性后提交,
++**When** 对expected_generation重核manage、完整映射、当前有效性和持久化恢复资格后提交,
+ **Then** 全部满足才清除本地停用，过期/缺链/权限撤销/并发CAS冲突拒绝且原状态不变,
+ **And** 恢复推进状态/App修订不推进generation；结果与审计可追溯但无秘密。
+ 
+@@ -870,6 +925,21 @@
+ **When** 在隔离Linux/OpenBao回归两App/两店铺及冲突/缺链/停用矩阵,
+ **Then** 完成Epic1适用SM-1/2/4/5/6与Linux/KMS基线证据，业务查询只有完整虚构成功值,
+ **And** 未知期限确认有效、秘密泄漏扫描及同主版本兼容回归通过；用虚构第二profile/adapter验证复用关系模型而不引入第二生产平台，不宣称SM-3真实授权或运行目标完成。
++**Given** 停用g5后仅刷新为g6但没有合格替换/重新授权,
++**When** 运维对g6显式restore并在重启后重复检查,
++**Then** 无recovery_basis证据则拒绝，不能仅因g6大于disabled_generation而恢复,
++**And** 刷新fixture和重启状态均保留停用，恢复资格不依赖审计是否写入成功。
++
++**Given** 停用g5后明确替换g6、再刷新g7且当前值已确认可用,
++**When** 检查合格替换证据并对g7显式restore，或再次disable后restore,
++**Then** 前者其余条件满足时成功；再次停用清空资格，旧替换证据不能复用,
++**And** 密钥重新加密不改变业务generation或资格，全部状态证据与当前值事务保存。
++
++**Given** 业务查询g10后当前值已刷新为g11,
++**When** manage以expected_generation=g10执行mark-invalid,
++**Then** 返回安全input_invalid，g11不被停用；匹配当前g11的失效报告可停用，主动disable仍独立停用当前值,
++**And** 审计只含非敏感目标/版本/结果，不传入或回传Token用于比对。
++
+ 
+ **Epic 1 拆分结果：** 共 18 条规划；先取得契约与隔离证据，再增量交付各用例。未来平台刷新不成为手工闭环的前置条件。实际的实施候选均受 Gates 约束，尚未正式定稿。
+ 
+@@ -1005,7 +1075,7 @@
+ 
+ **Dependencies:** 1.2、1.6、1.9、1.14、1.15、1.16、1.18、2.1、2.2、2.3；前序完成表示实际产物与验证通过，不是仅存在规划条目。
+ 
+-**Gates / External Inputs:** SQ-1真实兑换/身份/失败profile、SQ-2结果schema、SQ-3受保护待处置结果、SQ-4回调配置。
++**Gates / External Inputs:** SQ-1真实兑换/身份/失败profile、SQ-2结果schema、SQ-3结果保护：1.2的PENDING-RESULT-CONTRACT.md和1.6对应隔离实证必须均通过；SQ-4回调配置。当前密文测试通过不替代结果保护子门槛。
+ 
+ **Scope / Deliverables:** provider授权兑换/店铺规范化adapter、回调用例、durable operation/CAS与App排他协调；失败先形成可安全查询的待处置状态。
+ 
+@@ -1018,8 +1088,8 @@
+ 
+ **Given** 平台返回已核实店铺与业务/管理凭据,
+ **When** 规范化身份、加密结果并在写门提交,
+-**Then** 同平台跨App店铺归并，当前安装与密文/状态/generation同事务更新，重新授权只替换同组合当前值,
+-**And** 最终核对epoch/CAS与当前manage，保留disabled；多授权店铺不自动绑定品牌或内部店铺。
++**Then** 按pending-results.md先保护完整结果，再复核快照并转换为current-credential目标/type/新generation密文；同平台跨App店铺归并，当前安装与密文/状态/generation同事务更新，重新授权只替换同组合当前值；确认/验证证据不继承旧值,
++**And** 最终核对epoch/profile/CAS与当前manage，保留disabled，并为实际换值的停用类型保存重授权恢复资格；多授权店铺不自动绑定品牌或内部店铺。
+ 
+ **Given** 回调重复、来源错误、App/目标不匹配、旧epoch、过期或CAS冲突,
+ **When** 处理请求及查询会话结果,
+@@ -1035,6 +1105,11 @@
+ **When** 复用已有完整取密/停用规则,
+ **Then** 只返回当前组合，不提供旧授权候选；重新授权不自动恢复本地停用,
+ **And** 用虚构adapter完成幂等/崩溃/权限矩阵；真实Seller联调证据单独在2.8取得，mock不冒充它。
++**Given** 1.2/1.6结果包子门槛已通过且平台结果包含多个已核实店铺,
++**When** 保存暂存结果、模拟崩溃后再本地提交,
++**Then** 验证purpose/operation/App/epoch/profile/依赖快照，全部结果保护成功后才标protected-result；匹配才重新保护为正确中心目标/type/新generation并原子提交,
++**And** 用途互换/跨操作包/过时条件拒绝，重新授权清空旧确认/验证并建立合格恢复证据，不调用平台第二次、不解除停用。
++
+ 
+ ### Story 2.5: 运维可受控处置平台结果不确定的操作
+ 
+@@ -1048,7 +1123,7 @@
+ 
+ **Dependencies:** 1.1、1.9、1.18、2.1、2.4；前序完成表示实际产物与验证通过，不是仅存在规划条目。
+ 
+-**Gates / External Inputs:** SQ-1平台复核/安全重试、SQ-2处置命令、SQ-3加密结果保存契约。
++**Gates / External Inputs:** SQ-1平台复核/安全重试、SQ-2处置命令、SQ-3加密结果保存：明确消费1.2/1.6的待处置结果设计与隔离实证，以及2.4实际保存/启动保护。
+ 
+ **Scope / Deliverables:** operation检查/显式处置用例，profile允许的平台复核或受控重新授权恢复路径，沿用App协调。
+ 
+@@ -1061,7 +1136,7 @@
+ 
+ **Given** 完整加密结果已安全保存且领域依赖快照仍匹配,
+ **When** 显式申请仅本地条件提交,
+-**Then** 复核权限/epoch/版本后可原子提交，无再次平台调用；条件不满足拒绝且保留待处置证据,
++**Then** 验证pending包用途/operation/App/epoch/profile/依赖绑定，再复核权限与快照后可原子提交；转换为正确当前密文，绝不直接复用暂存包，无再次平台调用；条件不满足拒绝且保留待处置证据,
+ **And** 审计有操作关联，成功处置不会隐式恢复disabled或更改generation约定。
+ 
+ **Given** 结果尚未安全保存或快照不再有效,
+@@ -1071,7 +1146,7 @@
+ 
+ **Given** 重授权完成且之前本地停用,
+ **When** 随后执行已有显式restore,
+-**Then** 必须满足新版本、当前有效性、完整映射和manage才恢复取密,
++**Then** 必须expected_generation匹配，具停用后合格重新授权的recovery_basis事务证据，并满足当前有效性、完整映射和manage才恢复取密,
+ **And** 并发处置/撤权/崩溃后仍留durable安全状态，全部动作/拒绝无秘密审计。
+ 
+ ### Story 2.6: 运维可执行平台支持的凭据验证并区分失效
+@@ -1099,7 +1174,7 @@
+ 
+ **Given** 平台超时或暂时故障,
+ **When** 保存验证未完成,
+-**Then** 不伪装验证成功、不覆盖原可用性、不推进generation、不延长期限,
++**Then** last_validation_attempt记录incomplete，保留同generation已有确定validation_result/validation_generation和confirmed_generation；不伪装本次成功、不覆盖原可用性、不推进generation、不延长期限,
+ **And** 已过期/disabled/原不可用状态不因未完成恢复，运维确认与平台验证结果分别表达。
+ 
+ **Given** 返回明确已核实失效证据,
+@@ -1111,6 +1186,11 @@
+ **When** 检查查询结果,
+ **Then** 停用仍需已有显式恢复流程；验证结果不能替代完整映射/权限校验,
+ **And** 只对已核实接口实现，真实平台通过证据留给2.8。
++**Given** 当前g有确定valid验证证据，随后本次验证超时；或旧g验证在换值后返回,
++**When** 提交验证尝试及检查可用性,
++**Then** 同g超时只记last_validation_attempt=incomplete，保留该g既有valid/确认；旧g迟到valid或invalid结果均不得更改新值,
++**And** 失效证据匹配当前值才停用并清空恢复资格，验证成功不创建恢复资格、不延长期限。
++
+ 
+ ### Story 2.7: 服务可协调自动刷新并保留本地停用决定
+ 
+@@ -1124,7 +1204,7 @@
+ 
+ **Dependencies:** 1.6、1.9、1.15、1.16、1.18、2.1、2.4、2.5；前序完成表示实际产物与验证通过，不是仅存在规划条目。
+ 
+-**Gates / External Inputs:** SQ-1轮换/共享资源/调度/重试、SQ-3持久化结果、SQ-2维护状态。
++**Gates / External Inputs:** SQ-1轮换/共享资源/调度/重试、SQ-3持久化结果：消费1.2/1.6结果包契约与隔离实证、2.4/2.5业务恢复；SQ-2维护状态。
+ 
+ **Scope / Deliverables:** refresh_resource与必要持久化任务schema、next_attempt_at调度、共享App协调与平台refresh adapter。
+ 
+@@ -1137,8 +1217,8 @@
+ 
+ **Given** 刷新成功且App/resource/依赖对象CAS仍有效,
+ **When** 加密并原子提交所有依赖当前值,
+-**Then** generation与row_revision及App聚合修订按约定推进，共享资源相关新值同事务更新,
+-**And** 停用决定保持，状态查询只报实际结果，无跨请求明文缓存。
++**Then** 实际换值的generation与row_revision及App聚合修订按约定推进，共享资源相关新值同事务更新；旧确认/验证证据按credential-state.md重置，profile成功获取不伪称独立验证,
++**And** 停用决定和已有recovery_basis保持，刷新不能创建/推进恢复资格；状态查询只报实际结果，无跨请求明文缓存。
+ 
+ **Given** 明确无不确定副作用的安全失败、超时或平台失效,
+ **When** 按profile分类处理,
+@@ -1154,6 +1234,11 @@
+ **When** 执行调度与并发故障矩阵,
+ **Then** 依赖期限任务停止并告警，不同App状态不混用，operation领取本身不推进领域修订,
+ **And** 10s平台/5sKMS服从上层预算，结果和失败均无秘密审计，未核实profile禁用真实刷新。
++**Given** 停用凭据有或没有停用后合格替换/重新授权证据,
++**When** 后台实际换值并保存成功结果,
++**Then** 均保持disabled，刷新不创建/推进recovery_basis，只保留已有资格；旧确认/验证证据清空且期限来自本次值,
++**And** 未换值类型状态不继承其他类型证据，未知期限新值须重新确认；结果包与当前包用途交换拒绝，崩溃后按已有安全状态处置。
++
+ 
+ ### Story 2.8: 取得目标 Seller 环境的授权和维护联调证据
+ 
+@@ -1379,7 +1464,7 @@
+ **Given** 恢复快照中的账户、映射或Token可能已经变化,
+ **When** 执行运维核对清单,
+ **Then** 复核当前账户策略、完整归属及平台当前值，必要目标验证或受控重新授权；未结operation仍阻止App轮换,
+-**And** 不推定旧refresh可重用，不盲重放备份中持久化任务，已有停用不自动解除。
++**And** 按credential-state.md复核版本证据/恢复资格；按pending-results.md验证暂存包用途/操作绑定，不从审计缺口补造资格，不推定旧refresh可重用，不盲重放备份中持久化任务，已有停用不自动解除。
+ 
+ **Given** 复核全部满足且manage显式开放,
+ **When** 启用取密与支持调度并测试,
+@@ -1579,7 +1664,7 @@
+ | --- | --- |
+ | SQ-1 | 1.5、2.1、2.8 |
+ | SQ-2 | 1.1、1.8、1.16、1.17、2.3、2.4 |
+-| SQ-3 | 1.2、1.3、1.6、3.1、3.4、3.5 |
++| SQ-3 | 1.2（当前值/结果包设计）、1.3（身份）、1.6（当前值/结果包隔离实证）；2.4/2.5/2.7消费结果保护子门槛；3.1、3.4、3.5（恢复） |
+ | SQ-4 | 1.4、1.7、2.2、3.1、3.3、3.4、3.5 |
+ | SQ-5 | 3.1、3.6、3.7 |
+ 
+--- _bmad-output/specs/spec-third-party-api-key-hub/SPEC.md before
++++ _bmad-output/specs/spec-third-party-api-key-hub/SPEC.md current
+@@ -47,11 +47,11 @@
+ 
+ - **CAP-7**（FR-7）
+   - **intent:** 保存并检查凭据状态、有效期和验证结果，标记明确失效。
+-  - **success:** App 与安装凭据可独立追踪；运维确认与平台验证可区分，暂时验证故障保持原可用性而不恢复不可用值；明确失效可本地标记并停用，过期和停用值无明文。
++  - **success:** App 与安装凭据可独立追踪；运维确认与平台验证可区分，确认/验证证据绑定当前秘密版本，换值不继承旧证据；暂时故障另记尝试并保持同版本原可用性；业务失效标记携使用时版本，旧报告不误停新值，过期和停用值无明文。
+ 
+ - **CAP-8**（FR-8）
+   - **intent:** 自动维护支持刷新的凭据，并本地停用或显式恢复目标凭据。
+-  - **success:** 刷新成功更新当前值；失败不延长有效期，仍有效且未停用的旧值可返回；本地停用立即拒绝取密，刷新／验证／映射恢复不解除；重新授权或显式替换后仍须显式恢复。
++  - **success:** 刷新成功更新当前值；失败不延长有效期，仍有效且未停用的旧值可返回；本地停用立即拒绝取密，刷新／验证／映射恢复不解除；恢复须事务内证明停用后合格重新授权/替换，刷新不创建资格、再次停用清空；满足当前版本/可用性/映射/管理资格后仍须显式恢复。
+ 
+ - **CAP-9**（FR-9）
+   - **intent:** 按品牌、内部店铺或外部店铺取得对应的完整业务调用凭据。
+@@ -59,7 +59,7 @@
+ 
+ - **CAP-10**（FR-10）
+   - **intent:** 用稳定、机器可读的结果接入业务脚本。
+-  - **success:** 成功查询 JSON 含 identity、credentials、status 三组及完整业务凭据、全部归属标识和各类型的状态／有效期；失败仅 error/message 且无秘密，stdout 只含 JSON、诊断在 stderr，退出码成功 0／失败 1，同主版本兼容。
++  - **success:** 成功查询 JSON 含 identity、credentials、status 三组及完整业务凭据、全部归属标识和各类型的generation／状态／有效期；允许非敏感元数据扩展，旧CLI不透传未知字段、未知秘密仍拒绝；失败仅 error/message 且无秘密，stdout 只含 JSON、诊断在 stderr，退出码成功 0／失败 1，同主版本兼容。
+ 
+ - **CAP-11**（FR-11）
+   - **intent:** 按受控 Linux 账户资格限定本地主机管理与取密。
+@@ -75,7 +75,7 @@
+ - Go 六边形模块化单体，单节点单实例 hubd 执行业务规则，hub 是本地 CLI；应用用例唯一变更入口，平台适配器隔离差异，新增平台不得改变核心关系模型。
+ - 取密只经服务主机 Unix Socket 和内核身份授权；业务/审计库、密钥后端和管理操作不能由 CLI 绕过。公开入口仅回调，不开放远程管理或取密。
+ - 生产使用 OpenBao Transit，SQLite 仅存密文与元数据，无明文降级或跨请求秘密缓存；真实凭据禁止进入源码、Git、日志、测试、审计、告警和错误，受权正常取密按完整结果输出。
+-- 关系唯一性、完整映射、当前值版本、状态 CAS、App 级授权／刷新协调与外部结果不确定的恢复须遵守架构；不得盲目重放可能已生效的平台调用，不输出部分凭据。
++- 关系唯一性、完整映射、当前值版本、状态 CAS、App 级授权／刷新协调与外部结果不确定的恢复须遵守架构及其 credential-state.md、response-compatibility.md、pending-results.md；不得盲目重放可能已生效的平台调用，不输出部分凭据。
+ - 所有命令使用共同 contract/v1；导入不接受秘密命令参数，stdin 缺项不进入交互等待。平台能力与字段用途须由已核实 profile 定义，不能从通用 OAuth 或其他身份接口推定 Seller 事实。
+ - 可复现 Linux 构建／打包与 systemd，验收 Ubuntu 24.04 LTS、linux/amd64 和 linux/arm64；依赖版本按架构锁定。10 个本地并发、健康 KMS 下取密 p95 ≤2s、每日一致备份、RPO ≤24h、人工恢复 RTO ≤4h 是目标，仍须实测。
+ 
+@@ -93,6 +93,6 @@
+ 
+ - **SQ-1**：目标 TikTok 市场／App 类型及 Seller 授权、回调、店铺身份、Token 期限／轮换／共享刷新资源、验证与安全重试契约如何确认？平台设计者在相关 Story 编写前形成官方依据、provider profile 和受控联调计划；未核实不得启用真实授权／刷新。
+ - **SQ-2**：CLI 命令树、完整 DTO／输入 schema、隐藏输入及取消／显式恢复契约如何落实？CLI 设计者在相应 Story 编写前完成 AD-13 的 schema、示例及契约验收。
+-- **SQ-3**：Transit 绑定编码、AppRole 身份生命周期和密钥版本恢复如何验证？安全存储／部署设计者在相关 Story 前固化 AD-6／AD-14 的操作与验证步骤。
++- **SQ-3**：Transit 当前值/待处置结果绑定编码、AppRole 身份生命周期和密钥版本恢复如何验证？安全存储设计者以1.2交付两用途编码契约、1.6取得独立隔离实证；2.4/2.5/2.7实施前消费结果保护子门槛，部署恢复按AD-14继续验证。
+ - **SQ-4**：目标 systemd、TLS／证书、无秘密告警和未到达服务的连接拒绝采集、备份存储及一年审计保留如何部署？部署设计者在相关 Story 前形成并在 Linux 验证精确契约。
+ - **SQ-5**：并发／延迟与 RPO／RTO 的测量范围、故障条件及恢复演练如何验收？运行／恢复设计者在相关 Story 前形成测量和演练步骤；结果不满足须显式修订，不能暗中放宽安全边界。
+--- _bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md before
++++ _bmad-output/specs/spec-third-party-api-key-hub/implementation-gates.md current
+@@ -9,7 +9,7 @@
+ 
+ ## 契约读取与当前状态
+ 
+-[SPEC.md](SPEC.md) 的 CAP-N 对应 [PRD](../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md) FR-N；PRD 保留逐项验收、术语、NFR-1 至 NFR-6、SM-1 至 SM-8／SM-C1／SM-C2，以及后续 PF-1／PF-2。[技术补充](../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md) 保留平台研究的适用性限制及技术交接责任。[架构](../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md) 的 AD-1 至 AD-14、Consistency Conventions、Stack、Structural Seed、Operational Targets 和 Deferred 均为合同组成部分；架构图保留在该 companion 中。
++[SPEC.md](SPEC.md) 的 CAP-N 对应 [PRD](../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/prd.md) FR-N；PRD 保留逐项验收、术语、NFR-1 至 NFR-6、SM-1 至 SM-8／SM-C1／SM-C2，以及后续 PF-1／PF-2。[技术补充](../../planning-artifacts/prds/prd-third-party-api-key-hub-2026-10-08/addendum.md) 保留平台研究的适用性限制及技术交接责任。[架构](../../planning-artifacts/architecture/architecture-third-party-api-key-hub-2026-10-08/ARCHITECTURE-SPINE.md) 的 AD-1 至 AD-14、Consistency Conventions、Stack、Structural Seed、Operational Targets 和 Deferred 均为合同组成部分；架构图保留在该 companion 中；架构强制读取的 credential-state.md、response-compatibility.md、pending-results.md 承载本轮版本证据、兼容和待处置保护修订。
+ 
+ 用户已接受全部架构决策；PRD/addendum 中“后端未选定／技术待设计”描述的是架构之前的交接阶段，采用当前 final 架构中的已确认决定。完整 CLI 与平台协议、精确部署与恢复操作仍未完成，不把已接受架构理解为这些验证通过。既有文件不由 bmad-spec 修改；后续发现真正冲突时记录并交由相应上游技能更新。
+ 
+@@ -35,10 +35,12 @@
+ | 门槛 | 责任角色 | 必须形成的证据 |
+ | --- | --- | --- |
+ | SQ-1 平台契约 | 平台接入设计者 | 目标市场／App 类型、官方版本与适用性、Seller 授权与来源校验、店铺身份／shop_cipher、秘密用途与必需组合、Token 期限与轮换、共享 refresh resource、验证／失效／安全重试分类及受控联调计划；按 AD-9 至 AD-11 处理不确定副作用。 |
+-| SQ-2 CLI 契约 | CLI 设计者 | AD-13 命令树、完整 schema／示例、错误优先级、stdin EOF 与严格校验、显式 TTY 隐藏输入及取消／恢复、显式恢复取密入口和兼容验收。 |
+-| SQ-3 密钥保护 | 安全存储及部署设计者 | AD-6／AD-14 的 Transit 绑定与交换失败验证、旧密文解密、AppRole SecretID 发放／轮换／回收、Token 续期／重新认证、隔离权限与独立密钥版本备份恢复。 |
++| SQ-2 CLI 契约 | CLI 设计者（1.1） | AD-13完整命令/schema/样例、错误优先级、stdin/TTY/取消；每type输出generation，mark-invalid/确认/restore的expected_generation与主动disable语义；按response-compatibility.md验证旧CLI元数据扩展成功、未知秘密拒绝及无秘密输出；断连后非敏感当前版本/状态复核，不依赖审计唯一证明、不盲重放。 |
++| SQ-3 密钥保护 | 安全存储及部署设计者 | 1.2交付SECRET-PROTECTION-CONTRACT.md与PENDING-RESULT-CONTRACT.md，固定当前值/待处置包编码及用途/operation/App/epoch/profile/依赖绑定；1.6分别取得两用途交换拒绝、旧密文解密、失败/模拟重启隔离实证。2.4/2.5/2.7定稿前必须消费结果保护子项，普通当前密文验证不能替代。1.3/1.6负责AppRole发放/轮换/回收、Token续期/重新认证；3.1/3.4/3.5负责独立密钥版本备份恢复。 |
+ | SQ-4 部署与采集 | 部署设计者 | 目标 systemd 指令、账户与策略权限、仅回调 TLS／证书入口、安全告警、未到达服务的连接拒绝采集、业务／审计一致备份与一年保留；Linux 实际验收，无 argv／请求体／秘密采集。 |
+ | SQ-5 运行与恢复 | 运行及恢复设计者 | 10 并发与健康 KMS 下 p95 ≤2s 的测量口径、每日一致备份／RPO ≤24h、人工恢复 RTO ≤4h 的故障条件及演练步骤。恢复默认关闭取密和调度，复核映射／账户／平台当前值后显式开放。 |
++
++状态转换以架构 credential-state.md 为验收契约：1.13/1.14保存新值时重置旧证据，1.15确认匹配版本，1.18以事务内恢复资格及版本失效反例验收，2.4/2.6/2.7沿用；文档补齐不代表这些任务已执行。
+ 
+ 责任角色不是已分配的具名人员。未满足门槛的相关 Story 不视为可实施；非平台路径的手工导入不以真实授权或可选平台验证作为普遍前置条件，但仍须落实该路径需要的 CLI、字段用途、存储、权限和状态契约。真实平台请求、部署或第三方资源变更不由本规格输出自动授权。
+ 
