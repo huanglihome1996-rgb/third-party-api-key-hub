@@ -118,7 +118,22 @@ func ValidateOperationPayload(r OperationRequest) error {
 		allowed = "by app_id external_shop_id brand_id internal_shop_id"
 	case "audit.list":
 		allowed = "from to operation target result operation_id offset limit"
-	case "health":
+	case "recovery.open":
+		allowed = "expected_revision accounts_verified ownership_verified values_verified credentials"
+		var in RecoveryOpenInput
+		if DecodeStrict(bytes.NewReader(r.Payload), &in) != nil || RequireFields(r.Payload, "expected_revision", "accounts_verified", "ownership_verified", "values_verified", "credentials") != nil || in.ExpectedRevision <= 0 || !in.AccountsVerified || !in.OwnershipVerified || !in.ValuesVerified || in.Credentials == nil {
+			return errors.New("invalid recovery review")
+		}
+		var refs []json.RawMessage
+		if json.Unmarshal(m["credentials"], &refs) != nil {
+			return errors.New("invalid credentials")
+		}
+		for _, ref := range refs {
+			if ValidateOperationPayload(OperationRequest{Operation: "credential.confirm", Payload: ref}) != nil || RequireFields(ref, "scope", "app_id", "type", "expected_generation") != nil {
+				return errors.New("invalid recovery reference")
+			}
+		}
+	case "health", "operations.backup", "operations.retention", "recovery.status":
 		allowed = ""
 	default:
 		return errors.New("unknown operation")

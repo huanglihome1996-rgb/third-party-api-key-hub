@@ -18,6 +18,11 @@ import (
 type Fixture struct{ aead cipher.AEAD }
 
 func NewFixture(keyPath string) (*Fixture, error) {
+	if _, err := os.Lstat(keyPath); err == nil {
+		return NewExistingFixture(keyPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
 	key, err := os.ReadFile(keyPath)
 	if errors.Is(err, os.ErrNotExist) {
 		key = make([]byte, 32)
@@ -49,10 +54,47 @@ func NewFixture(keyPath string) (*Fixture, error) {
 			if err != nil {
 				return nil, err
 			}
+			return NewExistingFixture(keyPath)
 		}
 	} else if err != nil {
 		return nil, err
 	}
+	return fixtureFromKey(key)
+}
+
+// NewExistingFixture never generates recovery material. It rejects links and
+// publicly readable independent key files before constructing a protector.
+func NewExistingFixture(keyPath string) (*Fixture, error) {
+	absolute, err := filepath.Abs(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	for current := absolute; ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current)
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, errors.New("unsafe independent key")
+		}
+		if filepath.Dir(current) == current {
+			break
+		}
+	}
+	info, err := os.Lstat(absolute)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+		return nil, errors.New("unsafe independent key")
+	}
+	key, err := os.ReadFile(absolute)
+	if err != nil {
+		return nil, err
+	}
+	return fixtureFromKey(key)
+}
+func fixtureFromKey(key []byte) (*Fixture, error) {
 	if len(key) != 32 {
 		return nil, errors.New("invalid fixture key")
 	}

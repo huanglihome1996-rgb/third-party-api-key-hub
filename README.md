@@ -11,6 +11,7 @@
 - 已形成首期 PRD、架构、SPEC 和 34 条规划任务。
 - 2026-10-09 用户确认先交付 Epic 1 的平台无关本地核心，TikTok profile 延后到 Epic 2；已实现 Docker fixture CLI、Unix 服务、SQLite、手工导入/取密/停用恢复和非敏感审计。
 - Ubuntu/systemd、生产 OpenBao/AppRole 和 TikTok 验收仍阻塞；fixture 演示不代表完整首期或生产就绪。
+- Epic 3 本轮范围已确认：平台无关运行/备份/恢复核心和 Docker 验证；操作手册见 [运行与恢复](docs/operations.md)，生产验收继续独立记录。
 
 ## 现行文档入口
 
@@ -39,6 +40,8 @@ docker compose up -d --build hubd
 ```powershell
 docker compose down
 ```
+
+Epic 3 示例将实例放在卷内 `/state/instance`，同级运行锁在初始化或恢复前取得。旧 Epic 1 卷根目录的数据库/key保持原样，本轮不会自动迁移或覆盖；升级示例默认新建子目录实例。需沿用旧演示数据时，先停止旧实例，在受控可写父目录下离线迁移完整数据库和配套独立key，再启动并核对；不要移动或复制写入中的数据库。
 
 运行验证（缓存 Go 模块和构建，不安装本机 Go）：
 

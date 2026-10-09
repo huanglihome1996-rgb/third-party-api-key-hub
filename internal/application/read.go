@@ -20,6 +20,9 @@ func (e *Engine) read(ctx context.Context, r v1.OperationRequest) (any, error) {
 	s := &e.state
 	switch r.Operation {
 	case "credential.query":
+		if s.RecoveryClosed {
+			return nil, domain.ErrDisabled
+		}
 		var in v1.QueryInput
 		if payload(r.Payload, &in, "by") != nil {
 			return nil, domain.ErrInvalid
@@ -100,7 +103,7 @@ func (e *Engine) read(ctx context.Context, r v1.OperationRequest) (any, error) {
 		if payload(r.Payload, &in) != nil {
 			return nil, domain.ErrInvalid
 		}
-		return v1.HealthResult{Revision: s.Revision, AuditDegraded: e.degraded.Load(), Mode: "fixture", Deferred: []string{"linux_acceptance", "openbao", "tiktok"}}, nil
+		return v1.HealthResult{Revision: s.Revision, AuditDegraded: e.degraded.Load() || s.AuditGap, OperationsDegraded: e.operationsDegraded.Load(), RecoveryClosed: s.RecoveryClosed, Mode: "fixture", Deferred: []string{"linux_acceptance", "openbao", "tiktok"}}, nil
 	case "audit.list":
 		var in v1.AuditListInput
 		if payload(r.Payload, &in) != nil || in.Offset < 0 || in.Limit < 0 || in.Limit > 1000 {

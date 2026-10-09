@@ -1,14 +1,17 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/third-party-api-key-hub/internal/application"
+	v1 "github.com/third-party-api-key-hub/internal/contract/v1"
 	_ "modernc.org/sqlite"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 type Repository struct{ db *sql.DB }
@@ -66,8 +69,15 @@ func (r *Repository) initialize() error {
 	if err != nil {
 		return err
 	}
-	if version != 1 {
+	if version != 1 && version != 2 {
 		return errors.New("unsupported schema")
+	}
+	if version == 1 {
+		for _, statement := range []string{"ALTER TABLE metadata ADD COLUMN recovery_closed INTEGER NOT NULL DEFAULT 0", "ALTER TABLE metadata ADD COLUMN audit_gap INTEGER NOT NULL DEFAULT 0", "UPDATE metadata SET version=2"} {
+			if _, err = tx.Exec(statement); err != nil {
+				return err
+			}
+		}
 	}
 	for _, table := range []string{"apps", "shops", "brands", "internal_shops", "installations", "credentials"} {
 		if _, err = tx.Exec("CREATE TABLE IF NOT EXISTS " + table + "(id TEXT PRIMARY KEY, record TEXT NOT NULL)"); err != nil {
@@ -83,7 +93,7 @@ func (r *Repository) Load(ctx context.Context) (application.State, error) {
 		return state, err
 	}
 	defer tx.Rollback()
-	if err := tx.QueryRowContext(ctx, "SELECT revision,operation_seq FROM metadata").Scan(&state.Revision, &state.NextOperation); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT revision,operation_seq,recovery_closed,audit_gap FROM metadata").Scan(&state.Revision, &state.NextOperation, &state.RecoveryClosed, &state.AuditGap); err != nil {
 		return state, err
 	}
 	for table, dst := range map[string]any{"apps": &state.Apps, "shops": &state.Shops, "brands": &state.Brands, "internal_shops": &state.Internals, "installations": &state.Installations, "credentials": &state.Credentials} {
@@ -97,6 +107,13 @@ func (r *Repository) Load(ctx context.Context) (application.State, error) {
 			if err = rows.Scan(&id, &record); err != nil {
 				rows.Close()
 				return state, err
+			}
+			// Reject unknown fields, aliases, duplicate fields and malformed
+			// Unicode inside persisted records instead of silently normalizing them.
+			value := reflect.New(reflect.TypeOf(dst).Elem().Elem()).Interface()
+			if err = v1.DecodeStrict(bytes.NewReader([]byte(record)), value); err != nil {
+				rows.Close()
+				return state, errors.New("invalid persisted record")
 			}
 			values[id] = json.RawMessage(record)
 		}
@@ -146,7 +163,7 @@ func (r *Repository) Save(ctx context.Context, state application.State) error {
 			}
 		}
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE metadata SET revision=?,operation_seq=?", state.Revision, state.NextOperation); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE metadata SET revision=?,operation_seq=?,recovery_closed=?,audit_gap=MAX(audit_gap,?)", state.Revision, state.NextOperation, state.RecoveryClosed, state.AuditGap); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -190,7 +207,7 @@ func (a *Audit) List(ctx context.Context) ([]application.AuditEvent, error) {
 			return nil, err
 		}
 		var event application.AuditEvent
-		if err = json.Unmarshal([]byte(raw), &event); err != nil {
+		if err = v1.DecodeStrict(bytes.NewReader([]byte(raw)), &event); err != nil {
 			return nil, errors.New("invalid audit record")
 		}
 		result = append(result, event)

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "backup_id": {
+      "type": "string",
+      "pattern": "^backup-[A-Za-z0-9]{26}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "audit_gap": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "Z$"
+    },
+    "mode": {
+      "const": "fixture"
+    }
+  },
+  "required": [
+    "backup_id",
+    "revision",
+    "audit_gap",
+    "created_at",
+    "mode"
+  ],
+  "additionalProperties": false
+}

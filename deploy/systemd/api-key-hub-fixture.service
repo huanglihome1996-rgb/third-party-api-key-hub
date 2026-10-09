@@ -1,0 +1,27 @@
+[Unit]
+Description=API Key Hub isolated fictional demonstration
+After=local-fs.target
+
+[Service]
+Type=simple
+User=hubd-fixture
+Group=hubd-fixture
+StateDirectory=api-key-hub-fixture
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/opt/api-key-hub/bin/hubd --fixture --state-dir /var/lib/api-key-hub-fixture/instance
+Restart=on-failure
+TimeoutStopSec=30
+LimitCORE=0
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

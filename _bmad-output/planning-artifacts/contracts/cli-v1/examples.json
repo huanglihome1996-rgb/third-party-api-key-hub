@@ -376,6 +376,91 @@
       }
     },
     {
+      "operation": "operations.backup",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "operations.backup",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "operations.backup",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "operations.retention",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "operations.retention",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "operations.retention",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "recovery.open",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "recovery.open",
+        "payload": {
+          "expected_revision": 1,
+          "accounts_verified": true,
+          "ownership_verified": true,
+          "values_verified": true,
+          "credentials": [
+            {
+              "scope": "app",
+              "app_id": "fixture-app",
+              "type": "client_secret",
+              "expected_generation": 1
+            }
+          ]
+        }
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "recovery.open",
+        "payload": {
+          "expected_revision": 1,
+          "accounts_verified": true,
+          "ownership_verified": true,
+          "values_verified": true,
+          "credentials": [
+            {
+              "scope": "app",
+              "app_id": "fixture-app",
+              "type": "client_secret",
+              "expected_generation": 1
+            }
+          ],
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
+      "operation": "recovery.status",
+      "valid_request": {
+        "version": "contract/v1",
+        "operation": "recovery.status",
+        "payload": {}
+      },
+      "invalid_request": {
+        "version": "contract/v1",
+        "operation": "recovery.status",
+        "payload": {
+          "unknown_fixture_field": "fixture-value"
+        }
+      }
+    },
+    {
       "operation": "shop.list",
       "valid_request": {
         "version": "contract/v1",

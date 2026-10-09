@@ -1,8 +1,8 @@
 {
   "status": "PASS",
-  "operations": 23,
-  "example_checks": 46,
-  "regression_checks": 7,
+  "operations": 27,
+  "example_checks": 54,
+  "regression_checks": 10,
   "source": "internal/contract/v1/contract.go",
   "scope": "static fixture schema; domain rules/duplicates/EOF/body limits require Go tests"
 }

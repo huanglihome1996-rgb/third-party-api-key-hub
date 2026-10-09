@@ -48,7 +48,7 @@ func TestSchemaMismatchFailsStartup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = r.db.Exec("UPDATE metadata SET version=2"); err != nil {
+	if _, err = r.db.Exec("UPDATE metadata SET version=999"); err != nil {
 		t.Fatal(err)
 	}
 	r.Close()

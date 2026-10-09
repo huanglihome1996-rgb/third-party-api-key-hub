@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recovery_closed": {
+      "type": "boolean"
+    },
+    "audit_gap": {
+      "type": "boolean"
+    },
+    "mode": {
+      "const": "fixture"
+    }
+  },
+  "required": [
+    "revision",
+    "recovery_closed",
+    "audit_gap",
+    "mode"
+  ],
+  "additionalProperties": false
+}

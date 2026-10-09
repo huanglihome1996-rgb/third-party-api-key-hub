@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"time"
 )
 
 const Version = "contract/v1"
@@ -169,6 +170,10 @@ func exactFields(b []byte, t reflect.Type) error {
 	}
 	if bytes.Equal(bytes.TrimSpace(b), []byte("null")) {
 		return errors.New("null field")
+	}
+	if t == reflect.TypeOf(time.Time{}) {
+		var at time.Time
+		return json.Unmarshal(b, &at)
 	}
 	switch t.Kind() {
 	case reflect.Struct:
@@ -367,10 +372,12 @@ type StatusResult struct {
 	Limit    int           `json:"limit"`
 }
 type HealthResult struct {
-	Revision      int64    `json:"revision"`
-	AuditDegraded bool     `json:"audit_degraded"`
-	Mode          string   `json:"mode"`
-	Deferred      []string `json:"deferred"`
+	OperationsDegraded bool     `json:"operations_degraded"`
+	RecoveryClosed     bool     `json:"recovery_closed"`
+	Revision           int64    `json:"revision"`
+	AuditDegraded      bool     `json:"audit_degraded"`
+	Mode               string   `json:"mode"`
+	Deferred           []string `json:"deferred"`
 }
 
 type PageMetadata struct {

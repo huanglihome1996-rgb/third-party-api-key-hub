@@ -12,7 +12,7 @@ services:
   hub:
     image: api-key-hub:fixture
     entrypoint: [hub]
-    command: [--socket, /state/hub.sock]
+    command: [--socket, /state/instance/hub.sock]
     profiles: [tools]
     stdin_open: true
     volumes:
