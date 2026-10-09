@@ -22,14 +22,16 @@ type Actor struct {
 	Read, Manage bool
 }
 type State struct {
-	Apps          map[string]domain.App
-	Shops         map[string]domain.ExternalShop
-	Brands        map[string]domain.Brand
-	Internals     map[string]domain.InternalShop
-	Installations map[string]domain.Installation
-	Credentials   map[string]domain.Credential
-	Revision      int64
-	NextOperation uint64
+	Apps           map[string]domain.App
+	Shops          map[string]domain.ExternalShop
+	Brands         map[string]domain.Brand
+	Internals      map[string]domain.InternalShop
+	Installations  map[string]domain.Installation
+	Credentials    map[string]domain.Credential
+	Revision       int64
+	NextOperation  uint64
+	RecoveryClosed bool
+	AuditGap       bool
 }
 type Repository interface {
 	Load(context.Context) (State, error)
@@ -56,14 +58,18 @@ type AuditReader interface {
 	List(context.Context) ([]AuditEvent, error)
 }
 type Engine struct {
-	mu        sync.RWMutex
-	state     State
-	repo      Repository
-	protector Protector
-	audit     Audit
-	authorize func(Actor) Actor
-	profiles  ProviderRegistry
-	degraded  atomic.Bool
+	gate               sync.RWMutex
+	mu                 sync.RWMutex
+	state              State
+	repo               Repository
+	protector          Protector
+	audit              Audit
+	authorize          func(Actor) Actor
+	profiles           ProviderRegistry
+	degraded           atomic.Bool
+	operationsDegraded atomic.Bool
+	operationsFailures atomic.Uint64
+	operations         Operations
 }
 
 func EmptyState() State {
@@ -94,6 +100,8 @@ func clone(s State) State {
 	n := EmptyState()
 	n.Revision = s.Revision
 	n.NextOperation = s.NextOperation
+	n.RecoveryClosed = s.RecoveryClosed
+	n.AuditGap = s.AuditGap
 	for k, v := range s.Apps {
 		n.Apps[k] = v
 	}
@@ -135,8 +143,19 @@ func NewEngine(repo Repository, protector Protector, audit Audit, authorize func
 	}
 	return &Engine{state: normalize(clone(s)), repo: repo, protector: protector, audit: audit, authorize: authorize, profiles: registry}, nil
 }
-func (e *Engine) AuditDegraded() bool { return e.degraded.Load() }
-func isRead(op string) bool           { return op == "credential.query" }
+func (e *Engine) AuditDegraded() bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.degraded.Load() || e.state.AuditGap
+}
+func (e *Engine) SetOperationsDegraded(degraded bool) { e.operationsDegraded.Store(degraded) }
+
+// DrainOperationsFailures exposes only a count; the daemon supplies a fixed alert enum.
+func (e *Engine) DrainOperationsFailures() uint64 { return e.operationsFailures.Swap(0) }
+
+// Drain waits for all business calls and their deferred audit writes.
+func (e *Engine) Drain()    { e.gate.Lock(); e.gate.Unlock() }
+func isRead(op string) bool { return op == "credential.query" }
 func isMutation(op string) bool {
 	switch op {
 	case "app.register", "shop.register", "brand.register", "internal_shop.register", "shop.map_brand", "shop.unmap_brand", "brand.map_internal_shop", "brand.unmap_internal_shop", "installation.create", "credential.import", "credential.confirm", "credential.mark_invalid", "credential.disable", "credential.restore":
@@ -147,6 +166,13 @@ func isMutation(op string) bool {
 
 // Execute is the sole public business entry point. A candidate state is published only after durable commit.
 func (e *Engine) Execute(ctx context.Context, req v1.OperationRequest, actor Actor) (result any, err error) {
+	if isMaintenance(req.Operation) {
+		e.gate.Lock()
+		defer e.gate.Unlock()
+	} else {
+		e.gate.RLock()
+		defer e.gate.RUnlock()
+	}
 	event := AuditEvent{Time: time.Now().UTC(), UID: actor.UID, ActorName: actor.Name, Operation: "unknown", Target: "unknown", Result: "failure", OperationID: "op-" + rand.Text()}
 	defer func() {
 		if err == nil {
@@ -158,7 +184,7 @@ func (e *Engine) Execute(ctx context.Context, req v1.OperationRequest, actor Act
 			aCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 500*time.Millisecond)
 			defer cancel()
 			if aerr := e.audit.Record(aCtx, event); aerr != nil {
-				e.degraded.Store(true)
+				e.recordAuditGap()
 			}
 		}
 	}()
@@ -180,6 +206,9 @@ func (e *Engine) Execute(ctx context.Context, req v1.OperationRequest, actor Act
 	event.Target = auditTarget(req.Payload)
 	if ctx.Err() != nil {
 		return nil, v1.Fail(v1.ErrInternal)
+	}
+	if isMaintenance(req.Operation) || req.Operation == "recovery.status" {
+		return e.operate(ctx, req, actor)
 	}
 	if isMutation(req.Operation) {
 		e.mu.Lock()

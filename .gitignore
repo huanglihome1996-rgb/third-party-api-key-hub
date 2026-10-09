@@ -18,6 +18,8 @@ coverage/
 *.sqlite-wal
 fixture-state/
 .turbo/
+__pycache__/
+*.pyc
 
 # Local editor and OS files
 .idea/

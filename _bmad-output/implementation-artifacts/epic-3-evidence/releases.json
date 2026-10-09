@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "mode": "fixture",
+  "reproducible": true,
+  "architectures": {
+    "amd64": {
+      "archive_sha256": "ea46840f4ca244bc06405e2430341a54a78f3ff25b54cc4e5e80e05ba3772f94",
+      "file_whitelist": true,
+      "permissions": true,
+      "checksum_verification": true,
+      "invalid_cli_rejected": true,
+      "nonfixture_startup_rejected": true,
+      "execution": "native-amd64"
+    },
+    "arm64": {
+      "archive_sha256": "9ca15371aa062fa0caaa2d1299f7b5a966b2caa1778f0b7b6357d1ac49d389f0",
+      "file_whitelist": true,
+      "permissions": true,
+      "checksum_verification": true,
+      "invalid_cli_rejected": true,
+      "nonfixture_startup_rejected": true,
+      "execution": "binfmt-emulated-arm64"
+    }
+  }
+}

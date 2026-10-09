@@ -18,6 +18,27 @@ type lockedListener struct {
 	once sync.Once
 }
 
+// AcquireInstanceLock must precede all database/key initialization or restore.
+func AcquireInstanceLock(path string) (func(), error) {
+	info, err := os.Lstat(path)
+	if err == nil && (!info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0) {
+		return nil, errors.New("unsafe lock path")
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err = unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		unix.Close(fd)
+		return nil, errors.New("service already running")
+	}
+	var once sync.Once
+	return func() { once.Do(func() { unix.Flock(fd, unix.LOCK_UN); unix.Close(fd) }) }, nil
+}
+
 func (l *lockedListener) Close() error {
 	var err error
 	l.once.Do(func() { err = l.Listener.Close(); unix.Flock(int(l.lock.Fd()), unix.LOCK_UN); l.lock.Close() })

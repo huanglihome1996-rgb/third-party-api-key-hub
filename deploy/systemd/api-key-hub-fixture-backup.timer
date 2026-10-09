@@ -1,0 +1,11 @@
+[Unit]
+Description=API Key Hub fictional daily backup schedule
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+Unit=api-key-hub-fixture-backup.service
+
+[Install]
+WantedBy=timers.target

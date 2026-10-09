@@ -10,6 +10,7 @@ import re
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEST = ROOT / '_bmad-output/planning-artifacts/contracts/cli-v1'
 SOURCE = (ROOT / 'internal/contract/v1/contract.go').read_text(encoding='utf-8')
+SOURCE += '\n' + (ROOT / 'internal/contract/v1/operations.go').read_text(encoding='utf-8')
 ID = {'type': 'string', 'minLength': 1, 'maxLength': 128, 'pattern': r'^[^\s|\x00-\x1f\x7f]+$'}
 
 def definition(name):
@@ -57,11 +58,23 @@ OPERATIONS = {
 for op in ['app.list','shop.list','brand.list','internal_shop.list']:
     OPERATIONS[op] = ('ListInput', [])
 OPERATIONS['health'] = (None, [])
+for op in ['operations.backup','operations.retention','recovery.status']:
+    OPERATIONS[op] = (None, [])
+OPERATIONS['recovery.open'] = ('RecoveryOpenInput', ['expected_revision','accounts_verified','ownership_verified','values_verified','credentials'])
 
 branches = []
 for op, (dto, required) in sorted(OPERATIONS.items()):
     payload = definition(dto) if dto else {'type': 'object', 'properties': {}, 'additionalProperties': False}
     payload['required'] = required
+    if dto == 'RecoveryOpenInput':
+        for key in ['accounts_verified','ownership_verified','values_verified']:
+            payload['properties'][key] = {'const': True}
+        ref = definition('CredentialRefInput')
+        ref['properties'].pop('reason')
+        ref['properties']['scope'] = {'enum': ['app','shop']}
+        ref['required'] = ['scope','app_id','type','expected_generation']
+        ref['allOf'] = [{'if': {'properties': {'scope': {'const': 'shop'}}}, 'then': {'required': ['external_shop_id']}, 'else': {'not': {'required': ['external_shop_id']}}}]
+        payload['properties']['credentials'] = {'type': 'array', 'items': ref}
     if dto == 'ListInput' and op not in ('installation.list', 'credential.status'):
         payload['properties'] = {key:value for key,value in payload['properties'].items() if key in ('offset','limit')}
     if dto == 'MapInput':
@@ -108,7 +121,10 @@ def statuses(typ):
     return {'type':'array','minItems':1,'maxItems':1,'items':obj(fields, ['type','generation','available','expiry_known','expires_at'], True)}
 query_schema = obj({'identity':obj({key:ID for key in ['app_id','platform','provider_app_id','external_shop_id','provider_shop_id','brand_id','internal_shop_id']},extend=True), 'credentials':obj({'app':credential('client_secret'),'shop':credential('shop_token')}), 'status':obj({'app':statuses('client_secret'),'shop':statuses('shop_token')},extend=True)})
 mutation_schema = obj({'operation_id':{'type':'string','minLength':1},'revision':{'type':'integer','minimum':1},'generation':{'type':'integer','minimum':1},'row_revision':{'type':'integer','minimum':1}},['operation_id','revision','row_revision'])
-for name, output in [('error',error_schema),('query',query_schema),('mutation',mutation_schema)]:
+recovery_schema = obj({'revision':{'type':'integer','minimum':0},'recovery_closed':{'type':'boolean'},'audit_gap':{'type':'boolean'},'mode':{'const':'fixture'}})
+backup_schema = obj({'backup_id':{'type':'string','pattern':'^backup-[A-Za-z0-9]{26}$'},'revision':{'type':'integer','minimum':0},'audit_gap':{'type':'boolean'},'created_at':{'type':'string','pattern':'Z$'},'mode':{'const':'fixture'}})
+retention_schema = obj({'removed':{'type':'integer','minimum':0},'cutoff':{'type':'string','pattern':'Z$'},'mode':{'const':'fixture'}})
+for name, output in [('error',error_schema),('query',query_schema),('mutation',mutation_schema),('recovery',recovery_schema),('backup',backup_schema),('retention',retention_schema)]:
     output = {'$schema':schema['$schema'], **output}
     (DEST / (name+'.schema.json')).write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 
@@ -123,17 +139,21 @@ if __name__ == '__main__':
         values={'platform':'fixture','scope':'app','type':'client_secret','value':'fixture-value','reason':'invalid','by':'external_shop','replace':False,'confirm':False,'expiry_known':False,'expires_at':None,'expected_revision':1,'expected_generation':1}
         payload={key:values.get(key,'fixture-'+key.replace('_','-')) for key in required}
         if op=='credential.query':payload['external_shop_id']='fixture-shop'
+        if op=='recovery.open':
+            payload.update(accounts_verified=True,ownership_verified=True,values_verified=True,credentials=[{'scope':'app','app_id':'fixture-app','type':'client_secret','expected_generation':1}])
         valid={'version':'contract/v1','operation':op,'payload':payload}
         invalid={**valid,'payload':{**payload,'unknown_fixture_field':'fixture-value'}}
         assert validator.is_valid(valid), op
         assert not validator.is_valid(invalid), op
         examples.append({'operation':op,'valid_request':valid,'invalid_request':invalid})
-    for output in [error_schema,query_schema,mutation_schema]:Draft202012Validator.check_schema(output)
+    for output in [error_schema,query_schema,mutation_schema,recovery_schema,backup_schema,retention_schema]:Draft202012Validator.check_schema(output)
     regressions = [
         ('app.list', {'limit':0}), ('app.list', {'limit':1001}),
         ('app.list', {'app_id':''}), ('credential.status', {'app_id':''}),
         ('credential.import', {'scope':'app','app_id':'a','type':'client_secret','value':'fixture-v','replace':False,'expected_generation':0,'expiry_known':False,'expires_at':None,'confirm':True}),
         ('credential.import', {'scope':'app','app_id':'a','type':'client_secret','value':'fixture-v','replace':False,'external_shop_id':'s','expiry_known':False,'expires_at':None,'confirm':True}),
+        ('operations.backup', {'path':'fixture-path'}), ('operations.retention', {'cutoff':'2020-01-01T00:00:00Z'}),
+        ('recovery.open', {'expected_revision':1,'accounts_verified':False,'ownership_verified':True,'values_verified':True,'credentials':[]}),
     ]
     for op, payload in regressions:
         assert not validator.is_valid({'version':'contract/v1','operation':op,'payload':payload}), (op,payload)

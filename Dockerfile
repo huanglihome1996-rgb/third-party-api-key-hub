@@ -12,4 +12,4 @@ COPY --from=build /out/hub /usr/local/bin/hub
 COPY --from=build /out/hubd /usr/local/bin/hubd
 USER 10001:10001
 ENTRYPOINT ["hubd"]
-CMD ["--fixture", "--state-dir", "/state"]
+CMD ["--fixture", "--state-dir", "/state/instance"]
