@@ -2,7 +2,7 @@
 title: 'ALB 后的 Callback 一次安装脚本'
 type: 'feature'
 created: '2026-10-13'
-status: 'ready-for-release'
+status: 'complete'
 baseline_commit: '8d86893400651b10e638b11b42f031424b18ad88'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -46,7 +46,7 @@ context:
 - [x] Given 多App/重跑，when更新或新增App，then其他App、key、Token/state保留。
 - [x] Given 非法输入/端口占用/启动失败，when执行安装，then错误中不含secret，恢复已有文件和服务状态，不回写Token/state；实时数据与未停止进程适用保留规则。
 - [x] Given默认TLS或显式HTTP，when启动进程，then分别使用TLS/明文HTTP，冲突参数和缺失TLS参数返回非零。
-- [ ] 文档与双架构0.3.1安装包完成，不覆盖v0.3.0。
+- [x] 文档与双架构0.3.1安装包完成，不覆盖v0.3.0。
 
 ## Verification
 
@@ -59,7 +59,8 @@ context:
 
 - 2026-10-13：根代理复跑安装器28项回归全部通过，覆盖权限、运行数据保护、多App、迁移与失败恢复；两个独立审查代理复核后无剩余阻塞项。
 - Go全量 `go test ./...`、`go vet ./...` 通过；`govulncheck ./...` 未发现漏洞。HTTP/TLS子进程与 `go test -race ./cmd/ttcallback -count=1` 通过。
-- 最终提交源码的双架构归档及包内回归将在发布步骤核验，发布记录单独补充。
+- 0.3.1最终包从实现提交 `6f13b8c` 的 `git archive` 构建，双架构的20个包内文件SHA、ELF架构、LF/执行权限、安装帮助和各28项安装器回归全部通过。
+- amd64发布二进制以非root运行HTTP（无证书文件）和HTTPS，验证双App、本地模拟上游Token兑换、HTTPS公开redirect、state哈希/重放拒绝、加密Token与SIGTERM退出。验证范围记录于Release附件 `callback-verification.json`；不构成真实ALB、TikTok或Ubuntu/systemd验收。
 
 ## Spec Change Log
 
