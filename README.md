@@ -12,9 +12,9 @@
 - 2026-10-09 用户确认先交付 Epic 1 的平台无关本地核心，TikTok profile 延后到 Epic 2；已实现 Docker fixture CLI、Unix 服务、SQLite、手工导入/取密/停用恢复和非敏感审计。
 - Ubuntu/systemd、生产 OpenBao/AppRole 和 TikTok 验收仍阻塞；fixture 演示不代表完整首期或生产就绪。
 - Epic 3 本轮范围已确认：平台无关运行/备份/恢复核心和 Docker 验证；操作手册见 [运行与恢复](docs/operations.md)，生产验收继续独立记录。
-- 已补充独立 `cmd/ttcallback` HTTPS callback 进程，支持按多个 `app_id` 配置不同的 `app_key` 与 secret 引用；运行说明见 [TikTok callback](deploy/tiktok-callback/README.md)。
+- 已补充独立 `cmd/ttcallback` callback 进程，支持外部 ALB 终止 HTTPS、HTTP 后端，以及按多个 `app_id` 配置不同的 `app_key` 与 secret 引用；运行说明见 [TikTok callback](deploy/tiktok-callback/README.md)。
 - Ubuntu/systemd 安装步骤见 [Callback 安装手册](deploy/tiktok-callback/INSTALL.md)。
-- `scripts/build/package.sh` 默认构建 `0.3.0` 的 Linux amd64/arm64 包，包含 `ttcallback`、多 App 配置模板、systemd unit 和安装手册；上传对应架构的包即可安装，目标服务器无需 Go 或 Docker。
+- `scripts/build/package.sh` 默认构建 `0.3.1` 的 Linux amd64/arm64 包，包含 `ttcallback` 和交互安装脚本；解包后执行 `sudo bash deploy/tiktok-callback/install.sh`，输入公网域名、App id/key/secret，自动启动 HTTP 9080 服务。HTTPS 证书和转发由外部 ALB 处理。目标服务器无需 Go 或 Docker。
 
 ## 现行文档入口
 

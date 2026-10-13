@@ -12,6 +12,7 @@ import (
 	"flag"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,6 +50,123 @@ func TestCallbackExitsOnTLSStartupFailure(t *testing.T) {
 				t.Fatalf("startup diagnostics must contain only the generic event, got %q", output)
 			}
 		})
+	}
+}
+
+func TestCallbackRejectsInvalidTransportFlags(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "TLS_requires_both_certificate_flags"},
+		{name: "TLS_requires_key", args: []string{"-tls-cert", "private-certificate.pem"}},
+		{name: "HTTP_rejects_certificate", args: []string{"-http", "-tls-cert", "private-certificate.pem"}},
+		{name: "HTTP_rejects_key", args: []string{"-http", "-tls-key", "private-key.pem"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			configPath := callbackTestConfig(t, "127.0.0.1:0")
+			cmd := callbackTestArgsProcess(ctx, append([]string{"-config", configPath}, tc.args...)...)
+			output, err := cmd.CombinedOutput()
+			var exitErr *exec.ExitError
+			if ctx.Err() != nil || !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+				t.Fatalf("invalid transport flags must exit with status 1, got %v", err)
+			}
+			if string(output) != "event=callback_startup_failed count=1\n" {
+				t.Fatalf("startup diagnostics must contain only the generic event, got %q", output)
+			}
+		})
+	}
+}
+
+func TestCallbackHTTPBehindALBGracefulSIGTERM(t *testing.T) {
+	portReservation := httptest.NewServer(http.NotFoundHandler())
+	configPath := callbackTestConfig(t, portReservation.Listener.Addr().String())
+	baseURL := portReservation.URL
+	portReservation.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := callbackTestArgsProcess(ctx, "-config", configPath, "-http")
+	var output bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &output, &output
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer cmd.Process.Kill()
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	client := &http.Client{Timeout: time.Second}
+	defer client.CloseIdleConnections()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		resp, err := client.Get(baseURL + "/healthz")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("HTTP health status = %d, want 200", resp.StatusCode)
+			}
+			break
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("callback exited before HTTP became ready: %v", err)
+		case <-ctx.Done():
+			t.Fatal("HTTP startup deadline exceeded")
+		case <-ticker.C:
+		}
+	}
+	states := make(map[string]bool)
+	for _, appID := range []string{"test-app", "other-app"} {
+		resp, err := client.Get(baseURL + "/authorize?app_id=" + appID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var authorization struct {
+			AppID            string `json:"app_id"`
+			AuthorizationURL string `json:"authorization_url"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&authorization)
+		resp.Body.Close()
+		if err != nil || resp.StatusCode != http.StatusOK || authorization.AppID != appID {
+			t.Fatalf("HTTP authorization for %s = %+v, status %d, error %v", appID, authorization, resp.StatusCode, err)
+		}
+		u, err := url.Parse(authorization.AuthorizationURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		query := u.Query()
+		if query.Get("app_key") != "fixture-"+appID+"-key" || query.Get("redirect_uri") != "https://example.invalid/callbacks/tiktok-shop" {
+			t.Fatalf("HTTP upstream must retain configured app and external HTTPS callback, got %q", authorization.AuthorizationURL)
+		}
+		state := query.Get("state")
+		if state == "" || states[state] || query.Has("app_secret") {
+			t.Fatal("authorization must issue distinct state and omit app secret")
+		}
+		states[state] = true
+	}
+	resp, err := client.Get(baseURL + "/callbacks/tiktok-shop?code=fixture-code")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("HTTP callback without state = %d, want 400", resp.StatusCode)
+	}
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("HTTP SIGTERM should exit successfully: %v", err)
+		}
+		if output.Len() != 0 {
+			t.Fatalf("unexpected HTTP shutdown diagnostics: %q", output.String())
+		}
+	case <-ctx.Done():
+		t.Fatal("HTTP graceful shutdown deadline exceeded")
 	}
 }
 
@@ -130,8 +248,11 @@ func TestCallbackHelperProcess(t *testing.T) {
 }
 
 func callbackTestProcess(ctx context.Context, configPath, certPath, keyPath string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCallbackHelperProcess$", "--",
-		"-config", configPath, "-tls-cert", certPath, "-tls-key", keyPath)
+	return callbackTestArgsProcess(ctx, "-config", configPath, "-tls-cert", certPath, "-tls-key", keyPath)
+}
+
+func callbackTestArgsProcess(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestCallbackHelperProcess$", "--"}, args...)...)
 	cmd.Env = append(os.Environ(), "TT_CALLBACK_TEST_PROCESS=1", "TT_CALLBACK_TEST_APP_SECRET=fixture-app-secret")
 	return cmd
 }
@@ -148,13 +269,16 @@ func callbackTestConfig(t *testing.T, listenAddr string) string {
 		"state_store_path":     filepath.Join(dir, "states.json"),
 		"token_store_path":     filepath.Join(dir, "tokens.enc.json"),
 		"token_store_key_file": keyPath,
-		"apps": map[string]any{"test-app": map[string]string{
-			"app_key":        "fixture-app-key",
+		"apps":                 map[string]any{},
+	}
+	for _, appID := range []string{"test-app", "other-app"} {
+		config["apps"].(map[string]any)[appID] = map[string]string{
+			"app_key":        "fixture-" + appID + "-key",
 			"app_secret_env": "TT_CALLBACK_TEST_APP_SECRET",
 			"authorize_url":  "https://example.invalid/authorize",
 			"token_url":      "https://example.invalid/token",
 			"redirect_url":   "https://example.invalid/callbacks/tiktok-shop",
-		}},
+		}
 	}
 	data, err := json.Marshal(config)
 	if err != nil {

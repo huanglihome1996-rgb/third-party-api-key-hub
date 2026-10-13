@@ -23,11 +23,18 @@ func main() {
 
 func run() error {
 	configPath := flag.String("config", "", "callback JSON configuration")
+	httpMode := flag.Bool("http", false, "serve plain HTTP behind an ALB that terminates external HTTPS")
 	certPath := flag.String("tls-cert", "", "TLS certificate PEM")
 	keyPath := flag.String("tls-key", "", "TLS private key PEM")
 	flag.Parse()
-	if flag.NArg() != 0 || *configPath == "" || *certPath == "" || *keyPath == "" {
-		return fmt.Errorf("config, tls-cert and tls-key are required")
+	if flag.NArg() != 0 || *configPath == "" {
+		return fmt.Errorf("config is required and positional arguments are not accepted")
+	}
+	if *httpMode && (*certPath != "" || *keyPath != "") {
+		return fmt.Errorf("http cannot be combined with tls-cert or tls-key")
+	}
+	if !*httpMode && (*certPath == "" || *keyPath == "") {
+		return fmt.Errorf("tls-cert and tls-key are required unless http is enabled")
 	}
 	configFile, err := os.Open(*configPath)
 	if err != nil {
@@ -77,7 +84,13 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	serveErr := make(chan error, 1)
-	go func() { serveErr <- server.ServeTLS(listener, *certPath, *keyPath) }()
+	go func() {
+		if *httpMode {
+			serveErr <- server.Serve(listener)
+			return
+		}
+		serveErr <- server.ServeTLS(listener, *certPath, *keyPath)
+	}()
 	select {
 	case err := <-serveErr:
 		if err == http.ErrServerClosed {

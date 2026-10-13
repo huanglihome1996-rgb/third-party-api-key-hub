@@ -1,5 +1,5 @@
 [Unit]
-Description=Third-Party API Key Hub TikTok callback
+Description=Third-Party API Key Hub TikTok HTTP callback
 After=network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Type=simple
 User=api-key-hub
 Group=api-key-hub
 EnvironmentFile=-/etc/api-key-hub/tiktok-callback.env
-ExecStart=/opt/api-key-hub/bin/ttcallback -config /etc/api-key-hub/tiktok-callback.json -tls-cert /etc/api-key-hub/tls/fullchain.pem -tls-key /etc/api-key-hub/tls/privkey.pem
+ExecStart=/opt/api-key-hub/bin/ttcallback -config /etc/api-key-hub/tiktok-callback.json -http
 Restart=on-failure
 RestartSec=5s
 NoNewPrivileges=true

@@ -1,0 +1,9 @@
+# Keep scripts and service files usable when built or exported on Windows.
+*.sh text eol=lf
+*.py text eol=lf
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+*.service text eol=lf
+deploy/tiktok-callback/*.json text eol=lf
+deploy/tiktok-callback/*.md text eol=lf
