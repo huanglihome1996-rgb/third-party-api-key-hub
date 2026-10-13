@@ -3,7 +3,7 @@ set -euo pipefail
 umask 022
 cd "$(dirname "$0")/../.."
 
-version="${HUB_RELEASE_VERSION:-0.2.0-fixture}"
+version="${HUB_RELEASE_VERSION:-0.3.0}"
 revision="${HUB_SOURCE_REVISION:-}"
 if [[ -z "$revision" ]]; then revision="$(git rev-parse HEAD)"; fi
 [[ "$version" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]{0,63}$ ]] || exit 1
@@ -21,18 +21,22 @@ for arch in amd64 arm64; do
   name="api-key-hub-${version}-linux-${arch}"
   target="$stage/$name"
   mkdir -p "$target/bin" "$target/deploy/systemd" "$target/tools"
-  for binary in hub hubd; do
+  for binary in hub hubd ttcallback; do
     CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -buildvcs=false -trimpath -ldflags="-buildid= -X github.com/third-party-api-key-hub/internal/buildinfo.Version=$version-$tree_hash" -o "$target/bin/$binary" "./cmd/$binary"
   done
   cp deploy/systemd/* "$target/deploy/systemd/"
+  mkdir -p "$target/deploy/tiktok-callback"
+  for file in INSTALL.md README.md config.example.json api-key-hub-ttcallback.service; do
+    cp "deploy/tiktok-callback/$file" "$target/deploy/tiktok-callback/"
+  done
   cp deploy/fixture-backup.json "$target/deploy/"
   cp docs/operations.md "$target/OPERATIONS.md"
   cp scripts/operations/common.py scripts/operations/benchmark.py scripts/operations/drill.py scripts/operations/capacity.py "$target/tools/"
   sha256sum go.mod go.sum > "$target/modules.sha256"
-  printf '{"format":1,"mode":"fixture","version":"%s","source_revision":"%s","source_tree_sha256":"%s","build_version":"%s-%s","go_version":"%s","os":"linux","arch":"%s","production_acceptance":"pending"}\n' "$version" "$revision" "$tree_hash" "$version" "$tree_hash" "$go_version" "$arch" > "$target/release.json"
+  printf '{"format":1,"mode":"fixture+ttcallback","version":"%s","source_revision":"%s","source_tree_sha256":"%s","build_version":"%s-%s","go_version":"%s","os":"linux","arch":"%s","callback_acceptance":"pending","production_acceptance":"pending"}\n' "$version" "$revision" "$tree_hash" "$version" "$tree_hash" "$go_version" "$arch" > "$target/release.json"
   find "$target" -type d -exec chmod 0755 {} +
   find "$target" -type f -exec chmod 0644 {} +
-  chmod 0755 "$target/bin/hub" "$target/bin/hubd"
+  chmod 0755 "$target/bin/hub" "$target/bin/hubd" "$target/bin/ttcallback"
   (cd "$target" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
   tar --sort=name --format=gnu --mtime='@0' --owner=0 --group=0 --numeric-owner -C "$stage" -cf - "$name" | gzip -n > "dist/releases/$name.tar.gz.tmp"
   mv "dist/releases/$name.tar.gz.tmp" "dist/releases/$name.tar.gz"

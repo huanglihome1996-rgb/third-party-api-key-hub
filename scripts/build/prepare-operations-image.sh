@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-version="${HUB_RELEASE_VERSION:-0.2.0-fixture}"
+version="${HUB_RELEASE_VERSION:-0.3.0}"
 [[ "$version" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]{0,63}$ ]] || exit 1
 name="api-key-hub-${version}-linux-amd64"
 archive="dist/releases/$name.tar.gz"

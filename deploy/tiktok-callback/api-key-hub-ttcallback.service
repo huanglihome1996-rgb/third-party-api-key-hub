@@ -1,0 +1,22 @@
+[Unit]
+Description=Third-Party API Key Hub TikTok callback
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=api-key-hub
+Group=api-key-hub
+EnvironmentFile=-/etc/api-key-hub/tiktok-callback.env
+ExecStart=/opt/api-key-hub/bin/ttcallback -config /etc/api-key-hub/tiktok-callback.json -tls-cert /etc/api-key-hub/tls/fullchain.pem -tls-key /etc/api-key-hub/tls/privkey.pem
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/api-key-hub
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

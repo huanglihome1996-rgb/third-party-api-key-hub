@@ -1,0 +1,26 @@
+{
+  "listen_addr": "127.0.0.1:9080",
+  "authorize_path": "/authorize",
+  "callback_path": "/callbacks/tiktok-shop",
+  "state_store_path": "/var/lib/api-key-hub/tiktok-states.json",
+  "token_store_path": "/var/lib/api-key-hub/tiktok-tokens.enc.json",
+  "token_store_key_file": "/etc/api-key-hub/tiktok-token-store.key",
+  "apps": {
+    "tt-us-main": {
+      "app_key": "replace-with-app-key-1",
+      "app_secret_file": "/etc/api-key-hub/secrets/tt-us-main.secret",
+      "authorize_params": {"service_id": "replace-with-service-id-1"},
+      "authorize_url": "https://services.us.tiktokshop.com/open/authorize",
+      "token_url": "https://auth.tiktok-shops.com/api/v2/token/get",
+      "redirect_url": "https://example.com/callbacks/tiktok-shop"
+    },
+    "tt-us-secondary": {
+      "app_key": "replace-with-app-key-2",
+      "app_secret_file": "/etc/api-key-hub/secrets/tt-us-secondary.secret",
+      "authorize_params": {"service_id": "replace-with-service-id-2"},
+      "authorize_url": "https://services.us.tiktokshop.com/open/authorize",
+      "token_url": "https://auth.tiktok-shops.com/api/v2/token/get",
+      "redirect_url": "https://example.com/callbacks/tiktok-shop"
+    }
+  }
+}

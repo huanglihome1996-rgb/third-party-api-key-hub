@@ -1,6 +1,6 @@
 # 平台无关运行与恢复
 
-本手册针对用户确认的 Epic 3 本地 fixture 范围。Go 1.27.2、SQLite 1.60.1 和 Unix CLI 核心可在 Docker 验证；生产 OpenBao、TikTok Seller、Ubuntu/systemd、双架构实机及人工恢复验收仍待完成。fixture 服务拒绝非 fixture 启动。
+本手册针对本地 fixture 运维和独立 TikTok callback 发布包。Go 1.27.2、SQLite 1.60.1 和 Unix CLI 核心可在 Docker 验证；生产 OpenBao、TikTok Seller、Ubuntu/systemd、双架构实机及人工恢复验收仍待完成。fixture 服务拒绝非 fixture 启动，`ttcallback` 是单独的 HTTPS 进程。
 
 ## 可复现归档
 
@@ -11,9 +11,9 @@ $hubRevision = git rev-parse HEAD
 docker run --rm -e "HUB_SOURCE_REVISION=$hubRevision" -v "${PWD}:/src" -v epic1-go-mod:/go/pkg/mod -v epic1-go-build:/root/.cache/go-build -w /src golang:1.27.2 bash scripts/build/package.sh
 ```
 
-输出 `dist/releases/api-key-hub-0.2.0-fixture-linux-{amd64,arm64}.tar.gz` 和 SHA256SUMS。归档包含 hub/hubd、模块哈希、release.json、fixture unit、手册和 Python 标准库演练工具；无业务数据库、开发 key 或凭据。release.json 记录完整 revision 与实际 Go 源码树哈希，未提交源码不被伪装成 revision 对应源码；归档二进制的构建版本同时绑定版本号和源码树hash，跨构建备份不能直接混拼。归档固定排序/权限/时间和 owner；相同源码、模块、工具链和随包文件重复构建应字节一致。Python 只供演练工具使用，不是 hub/hubd 运行依赖。
+默认输出 `dist/releases/api-key-hub-0.3.0-linux-{amd64,arm64}.tar.gz` 和 SHA256SUMS。归档包含 `hub`、`hubd`、`ttcallback`、模块哈希、release.json、fixture unit、TikTok callback 的配置样例、systemd unit、安装手册和 Python 标准库演练工具；无业务数据库、开发 key、App secret、TLS 私钥或 Token。release.json 记录完整 revision 与实际 Go 源码树哈希，未提交源码不被伪装成 revision 对应源码；归档二进制的构建版本同时绑定版本号和源码树hash，跨构建备份不能直接混拼。归档固定排序/权限/时间和 owner；相同源码、模块、工具链和随包文件重复构建应字节一致。Python 只供演练工具使用，不是 hub/hubd/ttcallback 运行依赖。
 
-解包后先运行 `sha256sum -c SHA256SUMS`；交叉编译成功不证明目标运行。systemd 文件仅是 `hubd-fixture` 隔离账户的示例，账户/目录安装须由目标主机运维核验。daemon 自带每日备份/保留时，不同时启用可选 backup.timer；该 timer 不构成 systemd 实际验收证据。此范围没有生产 unit 或生产身份策略。
+解包后先运行 `sha256sum -c SHA256SUMS`；交叉编译成功不证明目标运行。`deploy/tiktok-callback/INSTALL.md` 是 callback 的服务器安装入口；其中的生产 secret、TLS 证书、域名和 TikTok Partner Center 配置必须由目标主机运维核验。`deploy/systemd/` 中的 unit 仅是 `hubd-fixture` 隔离账户的示例，账户/目录安装须由目标主机运维核验。daemon 自带每日备份/保留时，不同时启用可选 backup.timer；该 timer 不构成 systemd 实际验收证据。生产 OpenBao 接入、真实 TikTok 联调和人工恢复验收仍未完成。
 
 ## 在线运维
 
